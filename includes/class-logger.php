@@ -1,5 +1,5 @@
 <?php
-class Custom_Admin_Logger {
+class WC_Admin_Logger {
 
     public static function log_access($user_id) {
         global $wpdb;
@@ -81,7 +81,7 @@ class Custom_Admin_Logger {
         dbDelta($sql);
     }
 
-    public static function get_logs($limit = 50, $type = '', $search = '') {
+    public static function get_logs($limit = 50, $type = '', $search = '', $ip_search = '') {
         global $wpdb;
 
         $table_name = $wpdb->prefix . 'custom_dashboard_logs';
@@ -100,6 +100,11 @@ class Custom_Admin_Logger {
             $where_values[] = $search_term;
             $where_values[] = $search_term;
             $where_values[] = $search_term;
+        }
+
+        if (!empty($ip_search)) {
+            $where[] = "l.ip_address LIKE %s";
+            $where_values[] = '%' . $wpdb->esc_like($ip_search) . '%';
         }
 
         $where_clause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";

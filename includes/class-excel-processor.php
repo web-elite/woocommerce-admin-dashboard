@@ -2,53 +2,85 @@
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-class Excel_Processor {
+class Excel_Processor
+{
 
-    public static function process_upload($file_path) {
+    public static function process_upload($file_path)
+    {
         try {
             $spreadsheet = IOFactory::load($file_path);
             $worksheet = $spreadsheet->getActiveSheet();
             $rows = $worksheet->toArray();
 
-            // Skip header row
-            array_shift($rows);
+            // Skip first 2 rows (headers) - start from row 3
+            array_shift($rows); // Remove row 1
+            array_shift($rows); // Remove row 2
 
             $updated_count = 0;
             $created_count = 0;
             $errors = array();
 
             foreach ($rows as $index => $row) {
-                // Assuming columns: نام محصول, قیمت, درصد تخفیف, موجودی انبار
-                $product_name = trim($row[0] ?? '');
-                $regular_price = trim($row[1] ?? '');
-                $discount_percent = trim($row[2] ?? '');
-                $stock_quantity = trim($row[3] ?? '');
+                // ستون‌ها بر اساس ساختار جدید:
+                // ستون 1: SKU (کد محصول)
+                // ستون 17: قیمت محصول
+                // ستون 18: درصد تخفیف
+                // ستون 19: موجودی
+
+                $sku = trim($row[0] ?? ''); // ستون 1: SKU
+                $regular_price_str = trim($row[16] ?? ''); // ستون 17: قیمت محصول
+                $discount_percent_str = trim($row[17] ?? ''); // ستون 18: درصد تخفیف
+                $stock_quantity_str = trim($row[18] ?? ''); // ستون 19: موجودی
+
+                // پاک کردن کاماها و تبدیل به عدد
+                $regular_price = str_replace(',', '', $regular_price_str);
+                $discount_percent = str_replace(',', '', $discount_percent_str);
+                $excel_stock = str_replace(',', '', $stock_quantity_str);
 
                 // Validate required fields
-                if (empty($product_name)) {
-                    $errors[] = "ردیف " . ($index + 2) . ": نام محصول نمی‌تواند خالی باشد";
+                if (empty($sku)) {
+                    $errors[] = "ردیف " . ($index + 3) . ": کد SKU نمی‌تواند خالی باشد";
                     continue;
                 }
 
                 if (empty($regular_price) || !is_numeric($regular_price)) {
-                    $errors[] = "ردیف " . ($index + 2) . ": قیمت نامعتبر برای محصول '{$product_name}'";
+                    $errors[] = "ردیف " . ($index + 3) . ": قیمت نامعتبر برای محصول با SKU '{$sku}'";
                     continue;
                 }
 
-                // Calculate sale price if discount is provided
+                // Calculate sale price only if discount > 0
                 $sale_price = null;
                 if (!empty($discount_percent) && is_numeric($discount_percent) && $discount_percent > 0 && $discount_percent < 100) {
                     $sale_price = $regular_price * (1 - $discount_percent / 100);
                 }
 
-                $result = self::update_product($product_name, $regular_price, $sale_price, $stock_quantity);
+                // Calculate final stock: excel_stock - product_warehouse_limited
+                $final_stock = null;
+                if (!empty($excel_stock) && is_numeric($excel_stock)) {
+                    // Get product_warehouse_limited from product meta
+                    global $wpdb;
+                    $product_id = $wpdb->get_var($wpdb->prepare("
+                        SELECT post_id FROM {$wpdb->postmeta}
+                        WHERE meta_key = '_sku' AND meta_value = %s
+                        LIMIT 1
+                    ", $sku));
+
+                    $warehouse_limited = 0;
+                    if ($product_id) {
+                        $warehouse_limited = (int) get_post_meta($product_id, 'product_warehouse_limited', true);
+                    }
+
+                    $final_stock = max(0, $excel_stock - $warehouse_limited);
+                }
+
+                $result = self::update_product_by_sku($sku, $regular_price, $sale_price, $final_stock);
 
                 if ($result === 'updated') {
                     $updated_count++;
                 } elseif ($result === 'created') {
                     $created_count++;
                 } else {
-                    $errors[] = "ردیف " . ($index + 2) . ": " . $result;
+                    $errors[] = "ردیف " . ($index + 3) . ": " . $result;
                 }
             }
 
@@ -66,17 +98,17 @@ class Excel_Processor {
         }
     }
 
-    private static function update_product($name, $regular_price, $sale_price, $stock_quantity) {
+    private static function update_product_by_sku($sku, $regular_price, $sale_price, $stock_quantity)
+    {
         try {
-            // Find product by name (case-insensitive search)
+            // Find product by SKU
             global $wpdb;
 
             $product_id = $wpdb->get_var($wpdb->prepare("
-                SELECT ID FROM {$wpdb->posts}
-                WHERE post_type = 'product'
-                AND post_title = %s
+                SELECT post_id FROM {$wpdb->postmeta}
+                WHERE meta_key = '_sku' AND meta_value = %s
                 LIMIT 1
-            ", $name));
+            ", $sku));
 
             if ($product_id) {
                 // Update existing product
@@ -84,18 +116,19 @@ class Excel_Processor {
                 $product = wc_get_product($product_id);
 
                 if (!$product) {
-                    return "محصول '{$name}' یافت نشد";
+                    return "محصول با SKU '{$sku}' یافت نشد";
                 }
 
                 $product->set_regular_price($regular_price);
 
-                if ($sale_price !== null) {
+                // Only set sale price if discount > 0, otherwise remove it
+                if ($sale_price !== null && $sale_price > 0) {
                     $product->set_sale_price($sale_price);
                 } else {
                     $product->set_sale_price(''); // Remove sale price
                 }
 
-                if (!empty($stock_quantity) && is_numeric($stock_quantity)) {
+                if ($stock_quantity !== null && is_numeric($stock_quantity)) {
                     $product->set_stock_quantity($stock_quantity);
                     $product->set_manage_stock(true);
                 }
@@ -103,51 +136,48 @@ class Excel_Processor {
                 $product->save();
                 return 'updated';
             } else {
-                // Create new product
-                /** @disregard */
-                $product = new WC_Product_Simple();
-                $product->set_name($name);
-                $product->set_regular_price($regular_price);
-
-                if ($sale_price !== null) {
-                    $product->set_sale_price($sale_price);
-                }
-
-                if (!empty($stock_quantity) && is_numeric($stock_quantity)) {
-                    $product->set_stock_quantity($stock_quantity);
-                    $product->set_manage_stock(true);
-                } else {
-                    $product->set_stock_quantity(0);
-                    $product->set_manage_stock(true);
-                }
-
-                $product->set_status('publish');
-                $product->save();
-                return 'created';
+                // Create new product (if needed, but according to requirements, we should only update existing)
+                return "محصول با SKU '{$sku}' یافت نشد - محصول جدید ایجاد نمی‌شود";
             }
         } catch (Exception $e) {
-            return "خطا در بروزرسانی محصول '{$name}': " . $e->getMessage();
+            return "خطا در بروزرسانی محصول با SKU '{$sku}': " . $e->getMessage();
         }
     }
 
-    public static function generate_sample_file() {
+    public static function generate_sample_file()
+    {
         try {
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('محصولات');
 
-            // Set headers
-            $sheet->setCellValue('A1', 'نام محصول');
-            $sheet->setCellValue('B1', 'قیمت');
-            $sheet->setCellValue('C1', 'درصد تخفیف');
-            $sheet->setCellValue('D1', 'موجودی انبار');
+            // Set headers for new structure
+            $sheet->setCellValue('A1', 'کد SKU');
+            $sheet->setCellValue('B1', 'نام محصول');
+            $sheet->setCellValue('C1', 'نوع داده');
+            $sheet->setCellValue('D1', 'واحد شمارش');
+            $sheet->setCellValue('E1', 'دسته بندی اصلی');
+            $sheet->setCellValue('F1', 'دسته بندی فرعی');
+            $sheet->setCellValue('G1', 'ارزش افزوده خرید');
+            $sheet->setCellValue('H1', 'ارزش افزوده فروش');
+            $sheet->setCellValue('I1', 'ارزش افزوده درصد');
+            $sheet->setCellValue('J1', 'بارکد دارد یا خیر');
+            $sheet->setCellValue('K1', 'شماره فنی');
+            $sheet->setCellValue('L1', 'انتخاب ویزیتور');
+            $sheet->setCellValue('M1', 'مشخصه ها');
+            $sheet->setCellValue('N1', 'طبقه کالا');
+            $sheet->setCellValue('O1', 'کنترل سریال');
+            $sheet->setCellValue('P1', 'وضعیت فعال یا غیرفعال');
+            $sheet->setCellValue('Q1', 'قیمت محصول');
+            $sheet->setCellValue('R1', 'درصد تخفیف');
+            $sheet->setCellValue('S1', 'موجودی');
 
             // Style headers
             $headerStyle = [
                 'font' => [
                     'bold' => true,
                     'color' => ['rgb' => 'FFFFFF'],
-                    'size' => 12,
+                    'size' => 10,
                 ],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
@@ -156,6 +186,7 @@ class Excel_Processor {
                 'alignment' => [
                     'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
                     'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
                 ],
                 'borders' => [
                     'allBorders' => [
@@ -165,44 +196,32 @@ class Excel_Processor {
                 ],
             ];
 
-            $sheet->getStyle('A1:D1')->applyFromArray($headerStyle);
+            $sheet->getStyle('A1:S1')->applyFromArray($headerStyle);
 
             // Set column widths
-            $sheet->getColumnDimension('A')->setWidth(35);
-            $sheet->getColumnDimension('B')->setWidth(18);
-            $sheet->getColumnDimension('C')->setWidth(18);
-            $sheet->getColumnDimension('D')->setWidth(18);
+            $columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S'];
+            $widths = [12, 25, 10, 12, 15, 15, 15, 15, 15, 15, 12, 15, 12, 12, 12, 18, 15, 12, 10];
 
-            // Add sample data with different scenarios
+            foreach ($columns as $index => $column) {
+                $sheet->getColumnDimension($column)->setWidth($widths[$index]);
+            }
+
+            // Add sample data with new structure
             $sampleData = [
                 // نمونه 1: محصول با تخفیف
-                ['گوشی موبایل سامسونگ Galaxy A54', '4500000', '15', '25'],
+                ['1001', 'زعفران سرگل یک مثقال پاکت', 'کالا', 'عدد', 'زعفران', 'زعفران', 'True', 'True', '', 'دارد', '', '', '', '', 'False', 'True', '9000000', '10', '150'],
                 // نمونه 2: محصول بدون تخفیف
-                ['لپ تاپ ایسوس ROG Strix G15', '28500000', '', '12'],
-                // نمونه 3: محصول با تخفیف کم
-                ['هدفون سونی WH-1000XM5', '3200000', '5', '40'],
-                // نمونه 4: محصول با موجودی زیاد
-                ['کیبورد مکانیکی Logitech MX Keys', '1200000', '10', '85'],
-                // نمونه 5: محصول بدون موجودی مشخص
-                ['ماوس بی‌سیم Logitech MX Master 3S', '950000', '8', ''],
-                // نمونه 6: محصول ارزان با تخفیف بالا
-                ['کیس گوشی سیلیکونی سامسونگ', '25000', '20', '200'],
-                // نمونه 7: محصول گران بدون تخفیف
-                ['مانیتور ایسوس ROG Swift PG279Q', '12500000', '', '8'],
-                // نمونه 8: محصول با تخفیف متوسط
-                ['اسپیکر بلوتوثی JBL GO 3', '450000', '12', '65'],
-                // نمونه 9: محصول دیجیتال
-                ['نرم‌افزار Adobe Photoshop 2024', '1500000', '25', '999'],
-                // نمونه 10: محصول با تخفیف ویژه
-                ['تبلت سامسونگ Galaxy Tab S9', '8500000', '18', '15'],
+                ['1002', 'زعفران سرگل نیم مثقال پاکت', 'کالا', 'عدد', 'زعفران', 'زعفران', 'True', 'True', '', 'دارد', '', '', '', '', 'False', 'True', '5000000', '0', '200'],
+                // نمونه 3: محصول با تخفیف بالا
+                ['1003', 'زعفران سرگل ربع مثقال پاکت', 'کالا', 'عدد', 'زعفران', 'زعفران', 'True', 'True', '', 'دارد', '', '', '', '', 'False', 'True', '3000000', '15', '300'],
             ];
 
             $row = 2;
             foreach ($sampleData as $data) {
-                $sheet->setCellValue('A' . $row, $data[0]);
-                $sheet->setCellValue('B' . $row, $data[1]);
-                $sheet->setCellValue('C' . $row, $data[2]);
-                $sheet->setCellValue('D' . $row, $data[3]);
+                foreach ($data as $colIndex => $value) {
+                    $columnLetter = $columns[$colIndex];
+                    $sheet->setCellValue($columnLetter . $row, $value);
+                }
 
                 // Style data rows
                 $dataStyle = [
@@ -217,32 +236,17 @@ class Excel_Processor {
                     ],
                 ];
 
-                $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($dataStyle);
-
-                // Format price column as number
-                if (!empty($data[1])) {
-                    $sheet->getStyle('B' . $row)->getNumberFormat()->setFormatCode('#,##0');
-                }
-
-                // Format discount column as percentage
-                if (!empty($data[2])) {
-                    $sheet->getStyle('C' . $row)->getNumberFormat()->setFormatCode('0');
-                }
-
-                // Format stock column as number
-                if (!empty($data[3])) {
-                    $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('#,##0');
-                }
+                $sheet->getStyle('A' . $row . ':S' . $row)->applyFromArray($dataStyle);
 
                 $row++;
             }
 
-            // Add empty rows for user input
+            // Add empty rows for user input (starting from row 3 as data starts from row 3)
             for ($i = 0; $i < 10; $i++) {
-                $sheet->setCellValue('A' . $row, '');
-                $sheet->setCellValue('B' . $row, '');
-                $sheet->setCellValue('C' . $row, '');
-                $sheet->setCellValue('D' . $row, '');
+                for ($colIndex = 0; $colIndex < count($columns); $colIndex++) {
+                    $columnLetter = $columns[$colIndex];
+                    $sheet->setCellValue($columnLetter . $row, '');
+                }
 
                 $emptyStyle = [
                     'borders' => [
@@ -253,7 +257,7 @@ class Excel_Processor {
                     ],
                 ];
 
-                $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($emptyStyle);
+                $sheet->getStyle('A' . $row . ':S' . $row)->applyFromArray($emptyStyle);
                 $row++;
             }
 
@@ -271,10 +275,25 @@ class Excel_Processor {
             $instructionsSheet->getStyle('A3')->getFont()->setBold(true)->setSize(14);
 
             $columnData = [
-                ['نام محصول', 'الزامی', 'نام کامل محصول را وارد کنید'],
-                ['قیمت', 'الزامی', 'قیمت اصلی به تومان (فقط عدد)'],
-                ['درصد تخفیف', 'اختیاری', 'درصد تخفیف (0-99، خالی برای بدون تخفیف)'],
-                ['موجودی انبار', 'اختیاری', 'تعداد موجودی (فقط عدد، خالی برای نامشخص)'],
+                ['کد SKU', 'الزامی', 'کد منحصر به فرد محصول'],
+                ['نام محصول', 'الزامی', 'نام کامل محصول'],
+                ['نوع داده', 'الزامی', 'نوع محصول (کالا)'],
+                ['واحد شمارش', 'الزامی', 'واحد شمارش (عدد/بسته)'],
+                ['دسته بندی اصلی', 'الزامی', 'دسته‌بندی اصلی محصول'],
+                ['دسته بندی فرعی', 'الزامی', 'دسته‌بندی فرعی محصول'],
+                ['ارزش افزوده خرید', 'اختیاری', 'True/False'],
+                ['ارزش افزوده فروش', 'اختیاری', 'True/False'],
+                ['ارزش افزوده درصد', 'اختیاری', 'درصد ارزش افزوده'],
+                ['بارکد دارد یا خیر', 'اختیاری', 'دارد/ندارد'],
+                ['شماره فنی', 'اختیاری', 'شماره فنی محصول'],
+                ['انتخاب ویزیتور', 'اختیاری', 'اطلاعات ویزیتور'],
+                ['مشخصه ها', 'اختیاری', 'مشخصات محصول'],
+                ['طبقه کالا', 'اختیاری', 'طبقه‌بندی کالا'],
+                ['کنترل سریال', 'الزامی', 'True/False'],
+                ['وضعیت فعال', 'الزامی', 'True/False'],
+                ['قیمت محصول', 'الزامی', 'قیمت به تومان (با کاما)'],
+                ['درصد تخفیف', 'اختیاری', '0-99 (اگر 0 یا خالی، تخفیف حذف می‌شود)'],
+                ['موجودی', 'الزامی', 'تعداد موجودی'],
             ];
 
             $row = 5;
@@ -291,18 +310,16 @@ class Excel_Processor {
             $instructionsSheet->getStyle('A11')->getFont()->setBold(true)->setSize(14);
 
             $examples = [
-                ['گوشی موبایل سامسونگ', '4500000', '15', '25', 'قیمت فروش ویژه: 3,825,000 تومان'],
-                ['لپ تاپ ایسوس', '28500000', '', '12', 'بدون تخفیف'],
-                ['هدفون سونی', '3200000', '5', '', 'قیمت فروش ویژه: 3,040,000 تومان'],
+                ['1001', 'زعفران سرگل یک مثقال پاکت', 'کالا', 'عدد', 'زعفران', 'زعفران', 'True', 'True', '', 'دارد', '', '', '', '', 'False', 'True', '9,000,000', '10', '150'],
+                ['1002', 'زعفران سرگل نیم مثقال پاکت', 'کالا', 'عدد', 'زعفران', 'زعفران', 'True', 'True', '', 'دارد', '', '', '', '', 'False', 'True', '5,000,000', '0', '200'],
             ];
 
             $row = 13;
             foreach ($examples as $example) {
-                $instructionsSheet->setCellValue('A' . $row, $example[0]);
-                $instructionsSheet->setCellValue('B' . $row, $example[1]);
-                $instructionsSheet->setCellValue('C' . $row, $example[2]);
-                $instructionsSheet->setCellValue('D' . $row, $example[3]);
-                $instructionsSheet->setCellValue('E' . $row, $example[4]);
+                foreach ($example as $colIndex => $value) {
+                    $columnLetter = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S'][$colIndex];
+                    $instructionsSheet->setCellValue($columnLetter . $row, $value);
+                }
                 $row++;
             }
 

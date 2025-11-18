@@ -1,1 +1,5 @@
-.vscode/sftp.json
+composer.json
+composer.lock
+.vscode
+/vendor
+vendor

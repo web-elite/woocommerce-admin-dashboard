@@ -17,18 +17,18 @@
 
 ## شورت‌کدها
 
-### [smsir_login]
+### [wc_manager_login]
 فرم ورود ساده به حساب کاربری
 
-### [smsir_login_modal]
+### [wc_manager_login_modal]
 فرم ورود و ثبت نام به صورت مودال (با تب‌ها)
 
-### [smsir_newsletter]
+### [wc_manager_newsletter]
 فرم عضویت در خبرنامه
 
 ## نصب
 
-1. فایل‌های پلاگین را در دایرکتوری `/wp-content/plugins/custom-admin-dashboard` آپلود کنید.
+1. فایل‌های پلاگین را در دایرکتوری `/wp-content/plugins/wc-admin-dashboard` آپلود کنید.
 2. پلاگین را از طریق منوی 'پلاگین‌ها' در وردپرس فعال کنید.
 3. دستور `composer install` را در دایرکتوری پلاگین اجرا کنید تا وابستگی‌ها نصب شوند.
 
@@ -48,7 +48,7 @@
 ## استفاده
 
 ### دسترسی به داشبورد
-1. به داشبورد در `yoursite.com/custom-admin-dashboard` دسترسی پیدا کنید
+1. به داشبورد در `yoursite.com/wc-admin-dashboard` دسترسی پیدا کنید
 2. با حساب کاربری که دسترسی دارد وارد شوید
 
 ### تب درون‌ریزی محصولات
@@ -75,13 +75,13 @@
 
 ```php
 // فرم ورود ساده
-echo do_shortcode('[smsir_login]');
+echo do_shortcode('[wc_manager_login]');
 
 // فرم مودال ورود/ثبت نام
-echo do_shortcode('[smsir_login_modal]');
+echo do_shortcode('[wc_manager_login_modal]');
 
 // فرم خبرنامه
-echo do_shortcode('[smsir_newsletter]');
+echo do_shortcode('[wc_manager_newsletter]');
 ```
 
 ## ویژگی‌های لاگ‌گیری پیشرفته
