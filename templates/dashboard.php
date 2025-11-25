@@ -462,6 +462,37 @@ remove_action('wp_head', 'wp_oembed_add_host_js');
             z-index: 11;
         }
 
+        /* Loading row state */
+        .loading-row {
+            opacity: 0.6;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .loading-overlay-row {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(1px);
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay-row::after {
+            content: "";
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
         @keyframes spin {
             0% {
                 transform: translate(-50%, -50%) rotate(0deg);
@@ -735,6 +766,36 @@ remove_action('wp_head', 'wp_oembed_add_host_js');
                         </div>';
                     }
                     ?>
+
+                    <!-- Dashboard Filters -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">دوره زمانی</label>
+                                <select id="stats-period" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all" selected>همه زمان‌ها</option>
+                                    <option value="today">امروز</option>
+                                    <option value="yesterday">دیروز</option>
+                                    <option value="7">7 روز اخیر</option>
+                                    <option value="30">یک ماه اخیر</option>
+                                    <option value="custom">سفارشی</option>
+                                </select>
+                            </div>
+                            <div class="custom-date-range hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">از تاریخ</label>
+                                <input type="text" id="stats-start-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1403/01/01" data-jdp>
+                            </div>
+                            <div class="custom-date-range hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">تا تاریخ</label>
+                                <input type="text" id="stats-end-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1403/12/29" data-jdp>
+                            </div>
+                            <div class="flex items-end">
+                                <button id="apply-filters-btn" class="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                                    🔄 اعمال فیلتر
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Stats Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -1235,59 +1296,6 @@ remove_action('wp_head', 'wp_oembed_add_host_js');
 
     <!-- Dashboard JavaScript -->
     <script src="<?php echo plugin_dir_url(__FILE__) . '../assets/js/dashboard.js'; ?>"></script>
-
-    <script>
-        // Dashboard Navigation
-        document.addEventListener('DOMContentLoaded', function() {
-            const navItems = document.querySelectorAll('.nav-item');
-            const pages = document.querySelectorAll('.page-content');
-            const pageTitle = document.querySelector('.page-title');
-
-            const pageTitles = {
-                'dashboard': 'داشبورد مدیریت',
-                'orders': 'مدیریت سفارشات',
-                'analytics': 'تحلیل و گزارشات',
-                'products': 'مدیریت محصولات',
-                'customers': 'مدیریت مشتریان',
-                'settings': 'تنظیمات'
-            };
-
-            navItems.forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    // Remove active class from all nav items
-                    navItems.forEach(nav => nav.classList.remove('bg-blue-50', 'text-blue-600'));
-                    // Add active class to clicked item
-                    this.classList.add('bg-blue-50', 'text-blue-600');
-
-                    // Hide all pages
-                    pages.forEach(page => page.classList.add('hidden'));
-                    // Show selected page
-                    const pageId = this.dataset.page + '-page';
-                    document.getElementById(pageId).classList.remove('hidden');
-
-                    // Update page title
-                    pageTitle.textContent = pageTitles[this.dataset.page] || 'داشبورد مدیریت';
-                });
-            });
-
-            // Sidebar toggle
-            const sidebarToggle = document.querySelector('.sidebar-toggle');
-            const sidebar = document.querySelector('.sidebar-transition');
-
-            sidebarToggle.addEventListener('click', function() {
-                sidebar.classList.toggle('hidden');
-            });
-
-            // Logout function
-            window.logout = function() {
-                if (confirm('آیا مطمئن هستید که می‌خواهید خارج شوید؟')) {
-                    window.location.href = '<?php echo wp_logout_url(home_url()); ?>';
-                }
-            };
-        });
-    </script>
 </body>
 
 </html>

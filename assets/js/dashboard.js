@@ -22,21 +22,74 @@
             section.removeClass('loading-overlay');
         }
 
+        // Show dashboard message
+        function showDashboardMessage(message, type = 'info') {
+            // Remove existing message
+            $('.dashboard-message').remove();
+
+            // Create message element
+            const messageEl = $('<div class="dashboard-message fixed top-4 left-1/2 transform -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg max-w-md"></div>');
+
+            // Set message type styles
+            if (type === 'info') {
+                messageEl.addClass('bg-blue-50 border border-blue-200 text-blue-800');
+            } else if (type === 'success') {
+                messageEl.addClass('bg-green-50 border border-green-200 text-green-800');
+            } else if (type === 'warning') {
+                messageEl.addClass('bg-yellow-50 border border-yellow-200 text-yellow-800');
+            } else if (type === 'error') {
+                messageEl.addClass('bg-red-50 border border-red-200 text-red-800');
+            }
+
+            messageEl.html(`
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        ${type === 'info' ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>' :
+                          type === 'success' ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>' :
+                          type === 'warning' ? '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>' :
+                          '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>'}
+                    </div>
+                    <div class="mr-3 text-sm font-medium">${message}</div>
+                    <button class="dismiss-message flex-shrink-0 mr-2 text-gray-400 hover:text-gray-600">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            `);
+
+            // Add to page
+            $('body').append(messageEl);
+
+            // Auto dismiss after 5 seconds
+            setTimeout(function() {
+                messageEl.fadeOut(300, function() {
+                    $(this).remove();
+                });
+            }, 5000);
+
+            // Manual dismiss
+            messageEl.find('.dismiss-message').on('click', function() {
+                messageEl.fadeOut(300, function() {
+                    $(this).remove();
+                });
+            });
+        }
+
         // تب‌ها
-        $('.tab-btn').on('click', function () {
-            var tab = $(this).data('tab');
+        $('.nav-item').on('click', function () {
+            var tab = $(this).data('page');
 
             // Remove active classes from all tabs
-            $('.tab-btn').removeClass('bg-blue-500 text-white border-b-2 border-blue-500').addClass('bg-white text-gray-700');
+            $('.nav-item').removeClass('bg-blue-50 text-blue-600');
+            // Add active class to clicked tab
+            $(this).addClass('bg-blue-50 text-blue-600');
 
             // Hide all tab contents
-            $('.tab-content').removeClass('active').addClass('hidden');
-
-            // Add active class to clicked tab
-            $(this).removeClass('bg-white text-gray-700').addClass('bg-blue-500 text-white border-b-2 border-blue-500');
+            $('.page-content').removeClass('active').addClass('hidden');
 
             // Show selected tab content
-            $('#' + tab + '-tab').removeClass('hidden').addClass('active');
+            $('#' + tab + '-page').removeClass('hidden').addClass('active');
 
             // اگر تب سفارشات فعال شد، داده‌ها را لود کن
             if (tab === 'orders') {
@@ -183,7 +236,7 @@
 
         // کدهای مدیریت سفارشات
         let ordersTable;
-        let currentStatus = 'processing,pending'; // پیش‌فرض: در حال انجام و در حال بررسی
+        let currentStatus = 'all'; // پیش‌فرض: همه وضعیت‌ها
         let currentDateFilter = 'all';
         let currentSingleDate = '';
         let currentStartDate = '';
@@ -225,6 +278,16 @@
                     { data: 6, orderable: false, searchable: false }, // پرینت
                     { data: 7, orderable: false, searchable: false }  // عملیات
                 ],
+                columnDefs: [
+                    { width: '10%', targets: 0 }, // سفارش
+                    { width: '20%', targets: 1 }, // آدرس
+                    { width: '20%', targets: 2 }, // یادداشت
+                    { width: '10%', targets: 3 }, // مجموع
+                    { width: '10%', targets: 4 }, // وضعیت
+                    { width: '10%', targets: 5 }, // تاریخ
+                    { width: '5%', targets: 6 }, // پرینت
+                    { width: '10%', targets: 7 }  // عملیات
+                ],
                 order: [[5, 'desc']], // مرتب‌سازی پیش‌فرض بر اساس تاریخ نزولی
                 pageLength: 25,
                 lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
@@ -245,14 +308,28 @@
             if (ordersTable) {
                 ordersTable.ajax.reload();
             }
-        }        // تغییر وضعیت سفارش
+        }        // ذخیره وضعیت قبلی قبل از تغییر
+        $(document).on('focus', '.status-select', function () {
+            const selectElement = $(this);
+            const currentValue = selectElement.val();
+            selectElement.data('previous-status', currentValue);
+        });
+
+        // تغییر وضعیت سفارش
         $(document).on('change', '.status-select', function () {
             const selectElement = $(this);
             const orderId = selectElement.data('order-id');
             const newStatus = selectElement.val();
+            const oldStatus = selectElement.data('previous-status') || selectElement.val();
+            const row = selectElement.closest('tr');
 
-            // غیرفعال کردن select تا درخواست کامل شود
-            selectElement.prop('disabled', true);
+            // غیرفعال کردن کل سطر و نمایش loading
+            row.addClass('loading-row');
+            row.find('input, select, button').prop('disabled', true);
+
+            // اضافه کردن overlay loading به سطر
+            const loadingOverlay = $('<div class="loading-overlay-row"></div>');
+            row.css('position', 'relative').append(loadingOverlay);
 
             $.ajax({
                 url: custom_dashboard.ajax_url,
@@ -264,17 +341,43 @@
                     new_status: newStatus
                 },
                 success: function (response) {
-                    selectElement.prop('disabled', false);
+                    // برداشتن loading
+                    row.removeClass('loading-row');
+                    row.find('input, select, button').prop('disabled', false);
+                    row.find('.loading-overlay-row').remove();
+
                     if (response.success) {
-                        $(`.status-select[data-order-id="${orderId}"]`).closest('tr').find('.status-' + response.data.new_status).text(response.data.new_status_name);
-                        alert(response.data.message);
+                        // بروزرسانی وضعیت در جدول
+                        const statusCell = row.find('td').eq(4); // ستون وضعیت (index 4)
+                        const statusClasses = {
+                            'processing': 'bg-yellow-100 text-yellow-800',
+                            'completed': 'bg-green-100 text-green-800',
+                            'on-hold': 'bg-orange-100 text-orange-800',
+                            'cancelled': 'bg-red-100 text-red-800'
+                        };
+
+                        statusCell.html(`<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusClasses[newStatus] || 'bg-gray-100 text-gray-800'}">${response.data.new_status_name}</span>`);
+
+                        // بروزرسانی select
+                        selectElement.val(newStatus);
+
+                        // نمایش پیام موفقیت
+                        showDashboardMessage(response.data.message, 'success');
                     } else {
-                        alert('خطا: ' + response.data);
+                        // برگرداندن وضعیت قبلی در صورت خطا
+                        selectElement.val(oldStatus);
+                        showDashboardMessage('خطا: ' + response.data, 'error');
                     }
                 },
                 error: function () {
-                    selectElement.prop('disabled', false);
-                    alert('خطا در تغییر وضعیت سفارش.');
+                    // برداشتن loading
+                    row.removeClass('loading-row');
+                    row.find('input, select, button').prop('disabled', false);
+                    row.find('.loading-overlay-row').remove();
+
+                    // برگرداندن وضعیت قبلی
+                    selectElement.val(oldStatus);
+                    showDashboardMessage('خطا در تغییر وضعیت سفارش.', 'error');
                 }
             });
         });
@@ -490,7 +593,7 @@
         });
 
         // مقداردهی اولیه DataTable وقتی تب فعال می‌شود
-        $('.tab-btn[data-tab="manage"]').on('click', function () {
+        $('.nav-item[data-page="orders"]').on('click', function () {
             if (!ordersTable) {
                 if (typeof $.fn.DataTable === 'function') {
                     initializeOrdersTable();
@@ -555,8 +658,8 @@
 
                         // Show message if no data
                         if (response.data.message) {
-                            // You can show this message in a notification or alert
-                            console.log('Dashboard message:', response.data.message);
+                            // Show message as a notification
+                            showDashboardMessage(response.data.message, 'info');
                         }
                     } else {
                         console.error('AJAX error:', response.data);
@@ -725,6 +828,8 @@
             const startDate = $('#analytics-start-date').val();
             const endDate = $('#analytics-end-date').val();
 
+            console.log('Loading analytics data with period:', period, 'start:', startDate, 'end:', endDate);
+
             setSectionLoading($('#analytics-page'), true);
 
             $.ajax({
@@ -738,16 +843,20 @@
                     end_date: endDate
                 },
                 success: function (response) {
+                    console.log('Analytics AJAX response:', response);
                     removeSectionLoading($('#analytics-page'));
                     if (response.success) {
+                        console.log('Analytics data received:', response.data);
                         updateAnalyticsUI(response.data);
                     } else {
                         console.error('Analytics error:', response.data);
+                        showDashboardMessage('خطا در بارگذاری داده‌های تحلیل: ' + response.data, 'error');
                     }
                 },
                 error: function (xhr, status, error) {
+                    console.error('Analytics AJAX error:', status, error, xhr.responseText);
                     removeSectionLoading($('#analytics-page'));
-                    console.error('Analytics AJAX error:', status, error);
+                    showDashboardMessage('خطا در اتصال به سرور برای بارگذاری تحلیل‌ها.', 'error');
                 }
             });
         }
@@ -839,6 +948,7 @@
 
         // Create analytics charts
         function createAnalyticsCharts(chartData) {
+            console.log('Creating analytics charts with data:', chartData);
             // Monthly revenue chart
             createMonthlyRevenueChart(chartData.monthly);
 
@@ -852,120 +962,152 @@
         // Monthly revenue chart
         function createMonthlyRevenueChart(data) {
             const chartElement = document.getElementById('monthly-revenue-chart');
-            if (!chartElement) return;
-
-            // Clear existing chart
-            if (analyticsCharts.monthly) {
-                analyticsCharts.monthly.dispose();
+            if (!chartElement) {
+                console.error('Monthly revenue chart element not found');
+                return;
             }
 
-            analyticsCharts.monthly = LightweightCharts.createChart(chartElement, {
-                layout: {
-                    background: { color: 'rgba(255, 255, 255, 0.95)' },
-                    textColor: '#2d3748',
-                    fontSize: 12,
-                    fontFamily: 'Vazirmatn, sans-serif'
-                },
-                grid: {
-                    vertLines: { color: 'rgba(0, 0, 0, 0.05)' },
-                    horzLines: { color: 'rgba(0, 0, 0, 0.05)' }
-                },
-                width: chartElement.clientWidth,
-                height: 250
-            });
+            console.log('Creating monthly revenue chart with data:', data);
 
-            const areaSeries = analyticsCharts.monthly.addAreaSeries({
-                topColor: 'rgba(102, 126, 234, 0.56)',
-                bottomColor: 'rgba(102, 126, 234, 0.04)',
-                lineColor: '#667eea',
-                lineWidth: 2
-            });
+            try {
+                // Clear existing chart
+                if (analyticsCharts.monthly) {
+                    analyticsCharts.monthly.remove();
+                }
 
-            if (data && data.labels && data.data) {
-                const chartData = data.labels.map((label, index) => ({
-                    time: new Date(label + '-01').getTime() / 1000,
-                    value: parseFloat(data.data[index]) || 0
-                }));
-                areaSeries.setData(chartData);
-                analyticsCharts.monthly.timeScale().fitContent();
+                analyticsCharts.monthly = LightweightCharts.createChart(chartElement, {
+                    layout: {
+                        background: { color: 'rgba(255, 255, 255, 0.95)' },
+                        textColor: '#2d3748',
+                        fontSize: 12,
+                        fontFamily: 'Vazirmatn, sans-serif'
+                    },
+                    grid: {
+                        vertLines: { color: 'rgba(0, 0, 0, 0.05)' },
+                        horzLines: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    width: chartElement.clientWidth,
+                    height: 250
+                });
+
+                const areaSeries = analyticsCharts.monthly.addAreaSeries({
+                    topColor: 'rgba(102, 126, 234, 0.56)',
+                    bottomColor: 'rgba(102, 126, 234, 0.04)',
+                    lineColor: '#667eea',
+                    lineWidth: 2
+                });
+
+                if (data && data.labels && data.data && data.labels.length > 0) {
+                    const chartData = data.labels.map((label, index) => ({
+                        time: new Date(label + '-01').getTime() / 1000,
+                        value: parseFloat(data.data[index]) || 0
+                    }));
+                    areaSeries.setData(chartData);
+                    analyticsCharts.monthly.timeScale().fitContent();
+                    console.log('Monthly chart created successfully');
+                } else {
+                    console.warn('No data for monthly chart');
+                }
+            } catch (error) {
+                console.error('Error creating monthly revenue chart:', error);
             }
         }
 
         // Daily revenue chart
         function createDailyRevenueChart(data) {
             const chartElement = document.getElementById('daily-revenue-chart');
-            if (!chartElement) return;
-
-            if (analyticsCharts.daily) {
-                analyticsCharts.daily.dispose();
+            if (!chartElement) {
+                console.error('Daily revenue chart element not found');
+                return;
             }
 
-            analyticsCharts.daily = LightweightCharts.createChart(chartElement, {
-                layout: {
-                    background: { color: 'rgba(255, 255, 255, 0.95)' },
-                    textColor: '#2d3748',
-                    fontSize: 12,
-                    fontFamily: 'Vazirmatn, sans-serif'
-                },
-                grid: {
-                    vertLines: { color: 'rgba(0, 0, 0, 0.05)' },
-                    horzLines: { color: 'rgba(0, 0, 0, 0.05)' }
-                },
-                width: chartElement.clientWidth,
-                height: 250
-            });
+            console.log('Creating daily revenue chart with data:', data);
 
-            const lineSeries = analyticsCharts.daily.addLineSeries({
-                color: '#48bb78',
-                lineWidth: 2
-            });
+            try {
+                if (analyticsCharts.daily) {
+                    analyticsCharts.daily.remove();
+                }
 
-            if (data && data.labels && data.data) {
-                const chartData = data.labels.map((label, index) => ({
-                    time: new Date(label).getTime() / 1000,
-                    value: parseFloat(data.data[index]) || 0
-                }));
-                lineSeries.setData(chartData);
-                analyticsCharts.daily.timeScale().fitContent();
+                analyticsCharts.daily = LightweightCharts.createChart(chartElement, {
+                    layout: {
+                        background: { color: 'rgba(255, 255, 255, 0.95)' },
+                        textColor: '#2d3748',
+                        fontSize: 12,
+                        fontFamily: 'Vazirmatn, sans-serif'
+                    },
+                    grid: {
+                        vertLines: { color: 'rgba(0, 0, 0, 0.05)' },
+                        horzLines: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    width: chartElement.clientWidth,
+                    height: 250
+                });
+
+                const lineSeries = analyticsCharts.daily.addLineSeries({
+                    color: '#48bb78',
+                    lineWidth: 2
+                });
+
+                if (data && data.labels && data.data && data.labels.length > 0) {
+                    const chartData = data.labels.map((label, index) => ({
+                        time: new Date(label).getTime() / 1000,
+                        value: parseFloat(data.data[index]) || 0
+                    }));
+                    lineSeries.setData(chartData);
+                    analyticsCharts.daily.timeScale().fitContent();
+                    console.log('Daily chart created successfully');
+                } else {
+                    console.warn('No data for daily chart');
+                }
+            } catch (error) {
+                console.error('Error creating daily revenue chart:', error);
             }
-        }
-
-        // Revenue distribution chart
+        }        // Revenue distribution chart
         function createRevenueDistributionChart(data) {
             const ctx = document.getElementById('revenue-distribution-chart');
-            if (!ctx) return;
-
-            if (analyticsCharts.distribution) {
-                analyticsCharts.distribution.destroy();
+            if (!ctx) {
+                console.error('Revenue distribution chart element not found');
+                return;
             }
 
-            analyticsCharts.distribution = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: data ? data.labels : [],
-                    datasets: [{
-                        data: data ? data.data : [],
-                        backgroundColor: ['#667eea', '#48bb78', '#ed8936', '#f56565', '#a0aec0'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 1,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                font: {
-                                    family: 'Vazirmatn',
-                                    size: 12
+            console.log('Creating revenue distribution chart with data:', data);
+
+            try {
+                if (analyticsCharts.distribution) {
+                    analyticsCharts.distribution.destroy();
+                }
+
+                analyticsCharts.distribution = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data ? data.labels : [],
+                        datasets: [{
+                            data: data ? data.data : [],
+                            backgroundColor: ['#667eea', '#48bb78', '#ed8936', '#f56565', '#a0aec0'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 1,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        family: 'Vazirmatn',
+                                        size: 12
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+                console.log('Distribution chart created successfully');
+            } catch (error) {
+                console.error('Error creating revenue distribution chart:', error);
+            }
         }
 
         // Analytics event handlers
@@ -1287,8 +1429,8 @@
             }, 100);
         });
 
-        // اگر تب manage فعال است، DataTable را مقداردهی اولیه کن
-        if ($('.tab-btn[data-tab="manage"]').hasClass('active')) {
+        // اگر تب orders فعال است، DataTable را مقداردهی اولیه کن
+        if ($('.nav-item[data-page="orders"]').hasClass('bg-blue-50')) {
             if (typeof $.fn.DataTable === 'function') {
                 initializeOrdersTable();
             }

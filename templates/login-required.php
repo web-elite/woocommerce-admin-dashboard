@@ -1,12 +1,5 @@
 <?php
 get_header();
-
-// Enqueue WooCommerce scripts for login form
-wp_enqueue_script('woocommerce');
-wp_enqueue_script('wc-password-strength-meter');
-wp_enqueue_style('woocommerce-general');
-wp_enqueue_style('woocommerce-layout');
-wp_enqueue_style('woocommerce-smallscreen');
 ?>
 <style>
     /* Login Required Styles */
@@ -168,7 +161,7 @@ wp_enqueue_style('woocommerce-smallscreen');
     <h1>دسترسی به داشبورد</h1>
     <p>برای دسترسی به داشبورد سفارشی، لطفاً وارد حساب کاربری خود شوید.</p>
 
-    <?php woocommerce_login_form(array('redirect' => home_url('/admin-dashboard/'))); ?>
+    <?php echo do_shortcode('[prk_auth_sms]'); ?>
 </div>
 <?php
 get_footer();

@@ -1,13 +1,18 @@
 <?php
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+
 class wc_admin_dashboard
 {
 
     public function __construct()
     {
+        if (is_user_logged_in()) {
+            add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        }
         add_action('init', array($this, 'add_rewrite_rules'));
         add_filter('query_vars', array($this, 'add_query_vars'));
         add_action('template_redirect', array($this, 'dashboard_template'));
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_process_excel_upload', array($this, 'process_excel_upload'));
         add_action('wp_ajax_get_orders_stats', array($this, 'get_orders_stats'));
         add_action('wp_ajax_export_orders_excel', array($this, 'export_orders_excel'));
@@ -37,7 +42,7 @@ class wc_admin_dashboard
     {
         if (get_query_var('admin_dashboard')) {
             if (!is_user_logged_in()) {
-                // Show login modal instead of redirect
+                // Show login modal instead of redirect18
                 include plugin_dir_path(__FILE__) . '../templates/login-required.php';
                 exit;
             }
@@ -129,7 +134,7 @@ class wc_admin_dashboard
 
         error_log('Access granted, processing stats...');
 
-        $period = sanitize_text_field($_POST['period'] ?? '30');
+        $period = sanitize_text_field($_POST['period'] ?? 'all');
         $start_date = sanitize_text_field($_POST['start_date'] ?? '');
         $end_date = sanitize_text_field($_POST['end_date'] ?? '');
 
@@ -289,7 +294,7 @@ class wc_admin_dashboard
         }
 
         // تولید فایل اکسل
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         // هدرها
@@ -504,20 +509,20 @@ class wc_admin_dashboard
 
             $data[] = array(
                 '<a href="javascript:void(0)" class="text-blue-600 hover:text-blue-800 font-medium" onclick="showOrderDetails(' . $order->get_id() . ')">#' . $order->get_id() . ' - ' . $order->get_formatted_billing_full_name() . ' (' . $order->get_billing_phone() . ')</a>',
-                '<div class="max-w-xs truncate" title="' . $order->get_formatted_billing_address() . '">' . $order->get_formatted_billing_address() . '</div>',
-                '<div class="max-w-xs truncate" title="' . ($order->get_customer_note() ?: '-') . '">' . ($order->get_customer_note() ?: '-') . '</div>',
+                '<div class="text-xs whitespace-normal leading-relaxed" title="' . $order->get_formatted_billing_address() . '">' . $order->get_formatted_billing_address() . '</div>',
+                '<div class="text-xs whitespace-normal leading-relaxed" title="' . ($order->get_customer_note() ?: '-') . '">' . ($order->get_customer_note() ?: '-') . '</div>',
                 '<span class="font-medium text-gray-900">' . number_format($order->get_total(), 0) . ' تومان</span>',
                 '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $status_class . '">' . $status_name . '</span>',
                 '<span class="text-sm text-gray-500">' . $this->gregorian_to_jalali($order->get_date_created(), 'Y/m/d H:i') . '</span>',
                 '<div class="flex justify-center space-x-1">
                     <a href="' . $print_links['thermal'] . '" target="_blank" title="پرینت حرارتی" class="inline-flex items-center p-1 bg-pink-500 text-white text-xs rounded hover:bg-pink-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7.25 7h9.5V5c0-2-.75-3-3-3h-3.5c-2.25 0-3 1-3 3v2ZM16 15v4c0 2-1 3-3 3h-2c-2 0-3-1-3-3v-4h8Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M21 10v5c0 2-1 3-3 3h-2v-3H8v3H6c-2 0-3-1-3-3v-5c0-2 1-3 3-3h12c2 0 3 1 3 3ZM17 15H7M7 11h3" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7.25 7h9.5V5c0-2-.75-3-3-3h-3.5c-2.25 0-3 1-3 3v2ZM16 15v4c0 2-1 3-3 3h-2c-2 0-3-1-3-3v-4h8Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M21 10v5c0 2-1 3-3 3h-2v-3H8v3H6c-2 0-3-1-3-3v-5c0-2 1-3 3-3h12c2 0 3 1 3 3ZM17 15H7M7 11h3" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                     </a>
                     <a href="' . $print_links['label'] . '" target="_blank" title="برچسب" class="inline-flex items-center p-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m4.17 15.3 4.53 4.53a4.78 4.78 0 0 0 6.75 0l4.39-4.39a4.78 4.78 0 0 0 0-6.75L15.3 4.17a4.75 4.75 0 0 0-3.6-1.39l-5 .24c-2 .09-3.59 1.68-3.69 3.67l-.24 5c-.06 1.35.45 2.66 1.4 3.61Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m4.17 15.3 4.53 4.53a4.78 4.78 0 0 0 6.75 0l4.39-4.39a4.78 4.78 0 0 0 0-6.75L15.3 4.17a4.75 4.75 0 0 0-3.6-1.39l-5 .24c-2 .09-3.59 1.68-3.69 3.67l-.24 5c-.06 1.35.45 2.66 1.4 3.61Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"></path></svg>
                     </a>
                     <a href="' . $print_links['invoice'] . '" target="_blank" title="فاکتور" class="inline-flex items-center p-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M21 7v10c0 3-1.5 5-5 5H8c-3.5 0-5-2-5-5V7c0-3 1.5-5 5-5h8c3.5 0 5 2 5 5Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15.5 2v7.86c0 .44-.52.66-.84.37l-2.32-2.14a.496.496 0 0 0-.68 0l-2.32 2.14c-.32.29-.84.07-.84-.37V2h7ZM13.25 14h4.25M9 18h8.5" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 7v10c0 3-1.5 5-5 5H8c-3.5 0-5-2-5-5V7c0-3 1.5-5 5-5h8c3.5 0 5 2 5 5Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15.5 2v7.86c0 .44-.52.66-.84.37l-2.32-2.14a.496.496 0 0 0-.68 0l-2.32 2.14c-.32.29-.84.07-.84-.37V2h7ZM13.25 14h4.25M9 18h8.5" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                     </a>
                 </div>',
                 '<select class="status-select px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" data-order-id="' . $order->get_id() . '">
@@ -720,7 +725,9 @@ class wc_admin_dashboard
         // محصولات سفارش
         $items = array();
         foreach ($order->get_items() as $item_id => $item) {
+            /** @disregard */
             $product = $item->get_product();
+            /** @disregard */
             $items[] = array(
                 'name' => $item->get_name(),
                 'quantity' => $item->get_quantity(),
@@ -772,251 +779,355 @@ class wc_admin_dashboard
         ));
     }
 
-    private function get_total_orders_count($period = '30')
+    private function get_total_orders_count($period = 'all')
     {
-        global $wpdb;
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-pending', 'wc-processing', 'wc-completed', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'ids'
+        );
 
-        $date_filter = '';
-        switch ($period) {
-            case 'today':
-                $date_filter = "AND DATE(post_date) = CURDATE()";
-                break;
-            case 'yesterday':
-                $date_filter = "AND DATE(post_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-                break;
-            case '7':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
+
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
-        $query = "SELECT COUNT(*) FROM {$wpdb->prefix}posts WHERE post_type = 'shop_order' AND post_status IN ('wc-pending', 'wc-processing', 'wc-completed', 'wc-cancelled', 'wc-refunded') {$date_filter}";
-        $result = $wpdb->get_var($query);
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
+        $count = count($orders);
 
-        error_log("Total Orders Query: {$query}");
-        error_log("Total Orders Result: {$result}");
+        error_log("Total Orders Count: {$count} for period: {$period}");
 
-        return (int) $result;
+        return $count;
     }
 
-    private function get_completed_orders_count($period = '30')
+    private function get_completed_orders_count($period = 'all')
     {
-        global $wpdb;
+        $args = array(
+            'limit' => -1,
+            'status' => 'wc-completed',
+            'return' => 'ids'
+        );
 
-        $date_filter = '';
-        switch ($period) {
-            case 'today':
-                $date_filter = "AND DATE(post_date) = CURDATE()";
-                break;
-            case 'yesterday':
-                $date_filter = "AND DATE(post_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-                break;
-            case '7':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
+
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
-        $query = "SELECT COUNT(*) FROM {$wpdb->prefix}posts WHERE post_type = 'shop_order' AND post_status = 'wc-completed' {$date_filter}";
-        $result = $wpdb->get_var($query);
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
+        $count = count($orders);
 
-        error_log("Completed Orders Query: {$query}");
-        error_log("Completed Orders Result: {$result}");
+        error_log("Completed Orders Count: {$count} for period: {$period}");
 
-        return (int) $result;
+        return $count;
     }
 
-    private function get_total_revenue($period = '30')
+    private function get_total_revenue($period = 'all')
     {
-        global $wpdb;
+        $args = array(
+            'limit' => -1,
+            'status' => 'wc-completed',
+            'return' => 'objects'
+        );
 
-        $date_filter = '';
-        switch ($period) {
-            case 'today':
-                $date_filter = "AND p.post_date >= CURDATE()";
-                break;
-            case 'yesterday':
-                $date_filter = "AND DATE(p.post_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-                break;
-            case '7':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
+
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
-        $query = "
-            SELECT SUM(CAST(pm.meta_value AS DECIMAL(10,2)))
-            FROM {$wpdb->prefix}postmeta pm
-            JOIN {$wpdb->prefix}posts p ON pm.post_id = p.ID
-            WHERE pm.meta_key = '_order_total' AND p.post_type = 'shop_order' AND p.post_status = 'wc-completed' {$date_filter}
-        ";
-        $result = $wpdb->get_var($query);
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
 
-        error_log("Total Revenue Query: {$query}");
-        error_log("Total Revenue Result: {$result}");
+        $total = 0;
+        foreach ($orders as $order) {
+            $total += $order->get_total();
+        }
 
-        return number_format($result ?: 0, 0);
+        $formatted_total = number_format($total, 0);
+
+        error_log("Total Revenue: {$formatted_total} for period: {$period}");
+        return $formatted_total;
+    }
+    private function get_average_order_value($period = 'all')
+    {
+        $completed_count = $this->get_completed_orders_count($period);
+        if ($completed_count == 0) return 0;
+
+        $args = array(
+            'limit' => -1,
+            'status' => 'wc-completed',
+            'return' => 'objects'
+        );
+
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
+
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
+        }
+
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
+
+        $total = 0;
+        foreach ($orders as $order) {
+            $total += $order->get_total();
+        }
+
+        $avg = $total / $completed_count;
+        $formatted_avg = number_format($avg, 0);
+
+        error_log("Average Order Value: {$formatted_avg} for period: {$period}");
+
+        return $formatted_avg;
     }
 
-    private function get_average_order_value($period = '30')
+    private function get_monthly_sales_data($period = 'all')
     {
-        $total_orders = $this->get_completed_orders_count($period);
-        if ($total_orders == 0) return 0;
+        $args = array(
+            'limit' => -1,
+            'status' => 'wc-completed',
+            'return' => 'objects'
+        );
 
-        global $wpdb;
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
 
-        $date_filter = '';
-        switch ($period) {
-            case 'today':
-                $date_filter = "AND p.post_date >= CURDATE()";
-                break;
-            case 'yesterday':
-                $date_filter = "AND DATE(p.post_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-                break;
-            case '7':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
-        $query = "
-            SELECT SUM(CAST(pm.meta_value AS DECIMAL(10,2)))
-            FROM {$wpdb->prefix}postmeta pm
-            JOIN {$wpdb->prefix}posts p ON pm.post_id = p.ID
-            WHERE pm.meta_key = '_order_total' AND p.post_type = 'shop_order' AND p.post_status = 'wc-completed' {$date_filter}
-        ";
-        $total_revenue = $wpdb->get_var($query);
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
 
-        error_log("Average Order Query: {$query}");
-        error_log("Average Order Total Revenue: {$total_revenue}, Total Orders: {$total_orders}");
-
-        return number_format(($total_revenue ?: 0) / $total_orders, 0);
-    }
-
-    private function get_monthly_sales_data($period = '30')
-    {
-        global $wpdb;
-
-        $date_filter = '';
-        switch ($period) {
-            case '7':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
-            default:
-                $date_filter = "AND p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)";
+        $monthly_data = array();
+        foreach ($orders as $order) {
+            $month = $order->get_date_created()->format('Y-m');
+            if (!isset($monthly_data[$month])) {
+                $monthly_data[$month] = 0;
+            }
+            $monthly_data[$month] += $order->get_total();
         }
 
-        $results = $wpdb->get_results("
-            SELECT
-                DATE_FORMAT(p.post_date, '%Y-%m') as month,
-                SUM(CAST(pm.meta_value AS DECIMAL(10,2))) as total
-            FROM {$wpdb->prefix}posts p
-            JOIN {$wpdb->prefix}postmeta pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order' AND p.post_status = 'wc-completed' AND pm.meta_key = '_order_total' {$date_filter}
-            GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
-            ORDER BY month ASC
-        ");
+        ksort($monthly_data);
 
-        $labels = array();
-        $data = array();
-
-        foreach ($results as $result) {
-            $labels[] = $result->month;
-            $data[] = (float) $result->total;
-        }
+        $labels = array_keys($monthly_data);
+        $data = array_values($monthly_data);
 
         error_log("Monthly Sales Data: " . print_r(array('labels' => $labels, 'data' => $data), true));
 
         return array('labels' => $labels, 'data' => $data);
     }
 
-    private function get_order_status_data($period = '30')
+    private function get_order_status_data($period = 'all')
     {
-        global $wpdb;
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-pending', 'wc-processing', 'wc-completed', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $date_filter = '';
-        switch ($period) {
-            case 'today':
-                $date_filter = "AND DATE(post_date) = CURDATE()";
-                break;
-            case 'yesterday':
-                $date_filter = "AND DATE(post_date) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-                break;
-            case '7':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-                break;
-            case '30':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
-                break;
-            case '90':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
-                break;
-            case '365':
-                $date_filter = "AND post_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)";
-                break;
+        if ($period !== 'all') {
+            $date_range = $this->get_date_range_for_period($period);
+            $date_parts = explode('...', $date_range);
+            $start_date = $date_parts[0];
+            $end_date = $date_parts[1];
+
+            $args['date_query'] = array(
+                array(
+                    'after' => $start_date . ' 00:00:00',
+                    'before' => $end_date . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
-        $results = $wpdb->get_results("SELECT post_status, COUNT(*) as count FROM {$wpdb->prefix}posts WHERE post_type = 'shop_order' AND post_status IN ('wc-pending', 'wc-processing', 'wc-completed', 'wc-cancelled') {$date_filter} GROUP BY post_status");
+        $query = new WC_Order_Query($args);
+        $orders = $query->get_orders();
 
-        $labels = array();
-        $data = array();
+        $status_counts = array();
+        foreach ($orders as $order) {
+            $status = $order->get_status();
+            if (!isset($status_counts[$status])) {
+                $status_counts[$status] = 0;
+            }
+            $status_counts[$status]++;
+        }
 
         $status_names = array(
             'wc-pending' => 'در انتظار پرداخت',
             'wc-processing' => 'در حال پردازش',
             'wc-completed' => 'تکمیل شده',
-            'wc-cancelled' => 'لغو شده'
+            'wc-cancelled' => 'لغو شده',
+            'wc-refunded' => 'بازپرداخت شده',
+            'wc-failed' => 'ناموفق'
         );
 
-        foreach ($results as $result) {
-            $labels[] = $status_names[$result->post_status] ?? $result->post_status;
-            $data[] = (int) $result->count;
+        $labels = array();
+        $data = array();
+
+        foreach ($status_counts as $status => $count) {
+            $labels[] = $status_names[$status] ?? $status;
+            $data[] = $count;
         }
 
         error_log("Order Status Data: " . print_r(array('labels' => $labels, 'data' => $data), true));
 
         return array('labels' => $labels, 'data' => $data);
+    }
+
+    private function get_date_query_for_period($period)
+    {
+        $now = current_time('timestamp');
+
+        switch ($period) {
+            case 'today':
+                return array(
+                    array(
+                        'year' => date('Y', $now),
+                        'month' => date('m', $now),
+                        'day' => date('d', $now),
+                    ),
+                );
+            case 'yesterday':
+                $yesterday = strtotime('-1 day', $now);
+                return array(
+                    array(
+                        'year' => date('Y', $yesterday),
+                        'month' => date('m', $yesterday),
+                        'day' => date('d', $yesterday),
+                    ),
+                );
+            case '7':
+                return array(
+                    array(
+                        'after' => '7 days ago',
+                        'inclusive' => true,
+                    ),
+                );
+            case '30':
+                return array(
+                    array(
+                        'after' => '30 days ago',
+                        'inclusive' => true,
+                    ),
+                );
+            case '90':
+                return array(
+                    array(
+                        'after' => '90 days ago',
+                        'inclusive' => true,
+                    ),
+                );
+            case '365':
+                return array(
+                    array(
+                        'after' => '365 days ago',
+                        'inclusive' => true,
+                    ),
+                );
+            default:
+                return array(
+                    array(
+                        'after' => '30 days ago',
+                        'inclusive' => true,
+                    ),
+                );
+        }
+    }
+
+    private function get_date_range_for_period($period)
+    {
+        $now = current_time('timestamp');
+
+        switch ($period) {
+            case 'today':
+                $start = date('Y-m-d', $now);
+                $end = date('Y-m-d', $now);
+                break;
+            case 'yesterday':
+                $yesterday = strtotime('-1 day', $now);
+                $start = date('Y-m-d', $yesterday);
+                $end = date('Y-m-d', $yesterday);
+                break;
+            case '7':
+                $start = date('Y-m-d', strtotime('-7 days', $now));
+                $end = date('Y-m-d', $now);
+                break;
+            case '30':
+                $start = date('Y-m-d', strtotime('-30 days', $now));
+                $end = date('Y-m-d', $now);
+                break;
+            case '90':
+                $start = date('Y-m-d', strtotime('-90 days', $now));
+                $end = date('Y-m-d', $now);
+                break;
+            case '365':
+                $start = date('Y-m-d', strtotime('-365 days', $now));
+                $end = date('Y-m-d', $now);
+                break;
+            default:
+                $start = date('Y-m-d', strtotime('-30 days', $now));
+                $end = date('Y-m-d', $now);
+        }
+
+        $date_range = $start . '...' . $end;
+        error_log("Date range for period {$period}: {$date_range}");
+
+        return $date_range;
     }
 
     private function get_recent_orders()
@@ -1169,7 +1280,8 @@ class wc_admin_dashboard
     }
 
     // Analytics methods
-    public function get_analytics_data() {
+    public function get_analytics_data()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1183,7 +1295,7 @@ class wc_admin_dashboard
             return;
         }
 
-        $period = sanitize_text_field($_POST['period'] ?? '30');
+        $period = sanitize_text_field($_POST['period'] ?? 'all');
         $start_date = sanitize_text_field($_POST['start_date'] ?? '');
         $end_date = sanitize_text_field($_POST['end_date'] ?? '');
 
@@ -1205,7 +1317,8 @@ class wc_admin_dashboard
         wp_send_json_success($data);
     }
 
-    public function get_customer_details() {
+    public function get_customer_details()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1270,7 +1383,8 @@ class wc_admin_dashboard
         wp_send_json_success($data);
     }
 
-    public function get_datatable_customers() {
+    public function get_datatable_customers()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1316,7 +1430,8 @@ class wc_admin_dashboard
         ));
     }
 
-    public function get_customers_stats() {
+    public function get_customers_stats()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1382,7 +1497,8 @@ class wc_admin_dashboard
     }
 
     // Helper methods for analytics
-    private function get_date_range($period, $start_date, $end_date) {
+    private function get_date_range($period, $start_date, $end_date)
+    {
         $now = current_time('timestamp');
 
         switch ($period) {
@@ -1411,6 +1527,11 @@ class wc_admin_dashboard
                     'start' => $start_date,
                     'end' => $end_date
                 );
+            case 'all':
+                return array(
+                    'start' => '',
+                    'end' => ''
+                );
             default:
                 return array(
                     'start' => date('Y-m-d', strtotime('-30 days', $now)),
@@ -1419,167 +1540,217 @@ class wc_admin_dashboard
         }
     }
 
-    private function get_monthly_revenue_data($date_range) {
-        global $wpdb;
+    private function get_monthly_revenue_data($date_range)
+    {
+        // Try WC_Order_Query instead of wc_get_orders
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $query = $wpdb->prepare("
-            SELECT
-                DATE_FORMAT(p.post_date, '%Y-%m') as month,
-                SUM(pm.meta_value) as revenue
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND pm.meta_key = '_order_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            GROUP BY DATE_FORMAT(p.post_date, '%Y-%m')
-            ORDER BY month ASC
-        ", $date_range['start'], $date_range['end']);
-
-        $results = $wpdb->get_results($query);
-
-        $labels = array();
-        $data = array();
-
-        foreach ($results as $result) {
-            $labels[] = $result->month;
-            $data[] = floatval($result->revenue);
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
         }
+
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+
+        error_log("Monthly Revenue Debug - Date range: " . ($date_range['start'] ?? 'all') . " to " . ($date_range['end'] ?? 'all'));
+        error_log("Monthly Revenue Debug - Orders found: " . count($orders));
+
+        $monthly_data = array();
+        foreach ($orders as $order) {
+            $month = $order->get_date_created()->format('Y-m');
+            if (!isset($monthly_data[$month])) {
+                $monthly_data[$month] = 0;
+            }
+            $monthly_data[$month] += $order->get_total();
+        }
+
+        ksort($monthly_data);
+
+        $labels = array_keys($monthly_data);
+        $data = array_values($monthly_data);
+
+        error_log("Monthly Revenue Debug - Labels: " . print_r($labels, true));
+        error_log("Monthly Revenue Debug - Data: " . print_r($data, true));
 
         return array('labels' => $labels, 'data' => $data);
     }
 
-    private function get_daily_revenue_data($date_range) {
-        global $wpdb;
+    private function get_daily_revenue_data($date_range)
+    {
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $query = $wpdb->prepare("
-            SELECT
-                DATE(p.post_date) as date,
-                SUM(pm.meta_value) as revenue
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND pm.meta_key = '_order_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            GROUP BY DATE(p.post_date)
-            ORDER BY date ASC
-        ", $date_range['start'], $date_range['end']);
-
-        $results = $wpdb->get_results($query);
-
-        $labels = array();
-        $data = array();
-
-        foreach ($results as $result) {
-            $labels[] = $result->date;
-            $data[] = floatval($result->revenue);
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
         }
+
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+
+        error_log("Daily Revenue Debug - Orders found: " . count($orders));
+
+        $daily_data = array();
+        foreach ($orders as $order) {
+            $date = $order->get_date_created()->format('Y-m-d');
+            if (!isset($daily_data[$date])) {
+                $daily_data[$date] = 0;
+            }
+            $daily_data[$date] += $order->get_total();
+        }
+
+        ksort($daily_data);
+
+        $labels = array_keys($daily_data);
+        $data = array_values($daily_data);
 
         return array('labels' => $labels, 'data' => $data);
     }
 
-    private function get_revenue_distribution_data($date_range) {
-        global $wpdb;
+    private function get_revenue_distribution_data($date_range)
+    {
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $query = $wpdb->prepare("
-            SELECT
-                CASE
-                    WHEN pm.meta_value < 100000 THEN 'کمتر از ۱۰۰ هزار تومان'
-                    WHEN pm.meta_value BETWEEN 100000 AND 500000 THEN '۱۰۰ تا ۵۰۰ هزار تومان'
-                    WHEN pm.meta_value BETWEEN 500000 AND 1000000 THEN '۵۰۰ هزار تا ۱ میلیون تومان'
-                    WHEN pm.meta_value BETWEEN 1000000 AND 5000000 THEN '۱ تا ۵ میلیون تومان'
-                    ELSE 'بیشتر از ۵ میلیون تومان'
-                END as range,
-                COUNT(*) as count
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND pm.meta_key = '_order_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            GROUP BY
-                CASE
-                    WHEN pm.meta_value < 100000 THEN 'کمتر از ۱۰۰ هزار تومان'
-                    WHEN pm.meta_value BETWEEN 100000 AND 500000 THEN '۱۰۰ تا ۵۰۰ هزار تومان'
-                    WHEN pm.meta_value BETWEEN 500000 AND 1000000 THEN '۵۰۰ هزار تا ۱ میلیون تومان'
-                    WHEN pm.meta_value BETWEEN 1000000 AND 5000000 THEN '۱ تا ۵ میلیون تومان'
-                    ELSE 'بیشتر از ۵ میلیون تومان'
-                END
-        ", $date_range['start'], $date_range['end']);
-
-        $results = $wpdb->get_results($query);
-
-        $labels = array();
-        $data = array();
-
-        foreach ($results as $result) {
-            $labels[] = $result->range;
-            $data[] = intval($result->count);
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
         }
+
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+
+        error_log("Revenue Distribution Debug - Orders found: " . count($orders));
+
+        $ranges = array(
+            'کمتر از ۱۰۰ هزار تومان' => 0,
+            '۱۰۰ تا ۵۰۰ هزار تومان' => 0,
+            '۵۰۰ هزار تا ۱ میلیون تومان' => 0,
+            '۱ تا ۵ میلیون تومان' => 0,
+            'بیشتر از ۵ میلیون تومان' => 0
+        );
+
+        foreach ($orders as $order) {
+            $total = $order->get_total();
+            if ($total < 100000) {
+                $ranges['کمتر از ۱۰۰ هزار تومان']++;
+            } elseif ($total < 500000) {
+                $ranges['۱۰۰ تا ۵۰۰ هزار تومان']++;
+            } elseif ($total < 1000000) {
+                $ranges['۵۰۰ هزار تا ۱ میلیون تومان']++;
+            } elseif ($total < 5000000) {
+                $ranges['۱ تا ۵ میلیون تومان']++;
+            } else {
+                $ranges['بیشتر از ۵ میلیون تومان']++;
+            }
+        }
+
+        $labels = array_keys($ranges);
+        $data = array_values($ranges);
 
         return array('labels' => $labels, 'data' => $data);
     }
 
-    private function get_top_products($date_range) {
-        global $wpdb;
+    private function get_top_products($date_range)
+    {
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $query = $wpdb->prepare("
-            SELECT
-                p.ID,
-                p.post_title as name,
-                SUM(woim.meta_value) as sales,
-                SUM(woim.meta_value * woim2.meta_value) as revenue
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->prefix}woocommerce_order_items woi ON p.ID = woi.order_id
-            INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta woim ON woi.order_item_id = woim.order_item_id
-            INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta woim2 ON woi.order_item_id = woim2.order_item_id
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND woim.meta_key = '_qty'
-            AND woim2.meta_key = '_line_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            GROUP BY p.ID, p.post_title
-            ORDER BY revenue DESC
-            LIMIT 10
-        ", $date_range['start'], $date_range['end']);
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+        }
 
-        $results = $wpdb->get_results($query);
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+
+        error_log("Top Products Debug - Orders found: " . count($orders));
+
+        $products_data = array();
+        foreach ($orders as $order) {
+            foreach ($order->get_items() as $item) {
+                $product_name = $item->get_name();
+                $quantity = $item->get_quantity();
+                $total = $item->get_total();
+
+                if (!isset($products_data[$product_name])) {
+                    $products_data[$product_name] = array(
+                        'sales' => 0,
+                        'revenue' => 0
+                    );
+                }
+
+                $products_data[$product_name]['sales'] += $quantity;
+                $products_data[$product_name]['revenue'] += $total;
+            }
+        }
+
+        // Sort by revenue desc
+        arsort($products_data);
+
+        // Take top 10
+        $products_data = array_slice($products_data, 0, 10, true);
 
         $products = array();
-        foreach ($results as $result) {
+        foreach ($products_data as $name => $data) {
             $products[] = array(
-                'name' => $result->name,
-                'sales' => intval($result->sales),
-                'revenue' => number_format(floatval($result->revenue))
+                'name' => $name,
+                'sales' => intval($data['sales']),
+                'revenue' => number_format(floatval($data['revenue']))
             );
         }
 
         return $products;
     }
 
-    private function get_customer_analytics_stats($date_range) {
+    private function get_customer_analytics_stats($date_range)
+    {
         global $wpdb;
 
+        $date_condition = "";
+        $date_condition_users = "";
+        $date_condition_loyal = "";
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $date_condition = $wpdb->prepare(" AND DATE(p.post_date) BETWEEN %s AND %s", $date_range['start'], $date_range['end']);
+            $date_condition_users = $wpdb->prepare(" AND DATE(u.user_registered) BETWEEN %s AND %s", $date_range['start'], $date_range['end']);
+            $date_condition_loyal = $wpdb->prepare(" AND DATE(p.post_date) BETWEEN %s AND %s", $date_range['start'], $date_range['end']);
+        }
+
         // Total customers in period
-        $total = $wpdb->get_var($wpdb->prepare("
+        $total = $wpdb->get_var("
             SELECT COUNT(DISTINCT pm.meta_value)
             FROM {$wpdb->postmeta} pm
             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
             WHERE pm.meta_key = '_customer_user'
             AND pm.meta_value > 0
-            AND DATE(p.post_date) BETWEEN %s AND %s
-        ", $date_range['start'], $date_range['end']));
+            {$date_condition}
+        ");
 
         // New customers in period
-        $new = $wpdb->get_var($wpdb->prepare("
+        $new = $wpdb->get_var("
             SELECT COUNT(DISTINCT u.ID)
             FROM {$wpdb->users} u
-            WHERE DATE(u.user_registered) BETWEEN %s AND %s
-        ", $date_range['start'], $date_range['end']));
+            WHERE 1=1
+            {$date_condition_users}
+        ");
 
         // Loyal customers (more than 3 orders)
-        $loyal = $wpdb->get_var($wpdb->prepare("
+        $loyal = $wpdb->get_var("
             SELECT COUNT(*)
             FROM (
                 SELECT pm.meta_value, COUNT(*) as order_count
@@ -1589,20 +1760,36 @@ class wc_admin_dashboard
                 AND pm.meta_value > 0
                 AND p.post_type = 'shop_order'
                 AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-                AND DATE(p.post_date) BETWEEN %s AND %s
+                {$date_condition_loyal}
                 GROUP BY pm.meta_value
                 HAVING order_count > 3
             ) as loyal
-        ", $date_range['start'], $date_range['end']));
+        ");
 
-        // Average order value
-        $avg_order = $wpdb->get_var($wpdb->prepare("
-            SELECT AVG(pm.meta_value)
-            FROM {$wpdb->postmeta} pm
-            INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-            WHERE pm.meta_key = '_order_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-        ", $date_range['start'], $date_range['end']));
+        // Average order value - using WC_Order_Query
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+        }
+
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+        $total_revenue = 0;
+        $order_count = count($orders);
+
+        error_log("Customer Analytics Debug - Orders found: " . $order_count);
+
+        foreach ($orders as $order) {
+            $total_revenue += $order->get_total();
+        }
+
+        $avg_order = $order_count > 0 ? $total_revenue / $order_count : 0;
 
         return array(
             'total' => intval($total),
@@ -1612,64 +1799,93 @@ class wc_admin_dashboard
         );
     }
 
-    private function get_province_sales_data($date_range) {
-        global $wpdb;
+    private function get_province_sales_data($date_range)
+    {
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'objects'
+        );
 
-        $query = $wpdb->prepare("
-            SELECT
-                pm2.meta_value as province,
-                COUNT(*) as orders,
-                SUM(pm.meta_value) as revenue
-            FROM {$wpdb->postmeta} pm
-            INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-            INNER JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id
-            WHERE pm.meta_key = '_order_total'
-            AND pm2.meta_key = '_billing_state'
-            AND p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            AND pm2.meta_value != ''
-            GROUP BY pm2.meta_value
-            ORDER BY revenue DESC
-            LIMIT 10
-        ", $date_range['start'], $date_range['end']);
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+        }
 
-        $results = $wpdb->get_results($query);
+        $query = new WC_Order_Query($args);
+
+        $orders = $query->get_orders();
+
+        error_log("Province Sales Debug - Orders found: " . count($orders));
+
+        $province_data = array();
+        foreach ($orders as $order) {
+            $province = $order->get_billing_state();
+            if (!empty($province)) {
+                if (!isset($province_data[$province])) {
+                    $province_data[$province] = array(
+                        'orders' => 0,
+                        'revenue' => 0
+                    );
+                }
+                $province_data[$province]['orders']++;
+                $province_data[$province]['revenue'] += $order->get_total();
+            }
+        }
+
+        // Sort by revenue desc
+        arsort($province_data);
+
+        // Take top 10
+        $province_data = array_slice($province_data, 0, 10, true);
 
         $provinces = array();
-        foreach ($results as $result) {
+        foreach ($province_data as $name => $data) {
             $provinces[] = array(
-                'name' => $result->province,
-                'sales' => intval($result->orders),
-                'revenue' => number_format(floatval($result->revenue))
+                'name' => $name,
+                'sales' => intval($data['orders']),
+                'revenue' => number_format(floatval($data['revenue']))
             );
         }
 
         return $provinces;
     }
 
-    private function get_performance_metrics($date_range) {
+    private function get_performance_metrics($date_range)
+    {
         global $wpdb;
 
         // Conversion rate (simplified - orders vs visitors would need more complex tracking)
-        $total_orders = $wpdb->get_var($wpdb->prepare("
-            SELECT COUNT(*)
-            FROM {$wpdb->posts} p
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND DATE(p.post_date) BETWEEN %s AND %s
-        ", $date_range['start'], $date_range['end']));
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
+            'return' => 'ids'
+        );
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+        }
+
+        $query = new WC_Order_Query($args);
+
+        $total_orders = count($query->get_orders());
+
+        error_log("Performance Metrics Debug - Orders found: " . $total_orders);
+
+        $date_condition = "";
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $date_condition = $wpdb->prepare(" AND DATE(p.post_date) BETWEEN %s AND %s", $date_range['start'], $date_range['end']);
+        }
 
         // Average processing time (simplified)
-        $avg_processing_time = $wpdb->get_var($wpdb->prepare("
+        $avg_processing_time = $wpdb->get_var("
             SELECT AVG(TIMESTAMPDIFF(DAY, p.post_date, pm.meta_value))
             FROM {$wpdb->posts} p
             INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
             WHERE p.post_type = 'shop_order'
             AND p.post_status = 'wc_completed'
             AND pm.meta_key = '_completed_date'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-        ", $date_range['start'], $date_range['end']));
+            {$date_condition}
+        ");
 
         return array(
             'conversion_rate' => $total_orders > 0 ? min(100, ($total_orders / max(1, $total_orders * 10)) * 100) : 0, // Simplified
@@ -1679,7 +1895,8 @@ class wc_admin_dashboard
         );
     }
 
-    private function get_customers_with_orders($start, $length, $search, $sort, $date_filter) {
+    private function get_customers_with_orders($start, $length, $search, $sort, $date_filter)
+    {
         global $wpdb;
 
         $where_clause = "WHERE pm.meta_key = '_customer_user' AND pm.meta_value > 0";
@@ -1761,7 +1978,8 @@ class wc_admin_dashboard
         return $customers;
     }
 
-    private function get_customers_count($search, $date_filter) {
+    private function get_customers_count($search, $date_filter)
+    {
         global $wpdb;
 
         $where_clause = "WHERE pm.meta_key = '_customer_user' AND pm.meta_value > 0";
@@ -1787,7 +2005,8 @@ class wc_admin_dashboard
     }
 
     // Export methods
-    public function export_sales_report() {
+    public function export_sales_report()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1817,32 +2036,36 @@ class wc_admin_dashboard
         $sheet->setCellValue('C1', 'مجموع فروش');
         $sheet->setCellValue('D1', 'میانگین سفارش');
 
-        // Get daily data
-        global $wpdb;
-        $query = $wpdb->prepare("
-            SELECT
-                DATE(p.post_date) as date,
-                COUNT(*) as orders,
-                SUM(pm.meta_value) as revenue,
-                AVG(pm.meta_value) as avg_order
-            FROM {$wpdb->posts} p
-            INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-            WHERE p.post_type = 'shop_order'
-            AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
-            AND pm.meta_key = '_order_total'
-            AND DATE(p.post_date) BETWEEN %s AND %s
-            GROUP BY DATE(p.post_date)
-            ORDER BY date ASC
-        ", $date_range['start'], $date_range['end']);
+        // Get daily data using wc_get_orders
+        $args = array(
+            'limit' => -1,
+            'status' => array('wc-completed', 'wc-processing', 'wc-on-hold'),
+            'date_created' => $date_range['start'] . '...' . $date_range['end'],
+            'return' => 'objects'
+        );
 
-        $results = $wpdb->get_results($query);
+        $orders = wc_get_orders($args);
+
+        $daily_data = array();
+        foreach ($orders as $order) {
+            $date = $order->get_date_created()->format('Y-m-d');
+            if (!isset($daily_data[$date])) {
+                $daily_data[$date] = array(
+                    'orders' => 0,
+                    'revenue' => 0
+                );
+            }
+            $daily_data[$date]['orders']++;
+            $daily_data[$date]['revenue'] += $order->get_total();
+        }
 
         $row = 2;
-        foreach ($results as $result) {
-            $sheet->setCellValue('A' . $row, $this->gregorian_to_jalali($result->date, 'Y/m/d'));
-            $sheet->setCellValue('B' . $row, $result->orders);
-            $sheet->setCellValue('C' . $row, $result->revenue);
-            $sheet->setCellValue('D' . $row, $result->avg_order);
+        foreach ($daily_data as $date => $data) {
+            $avg_order = $data['orders'] > 0 ? $data['revenue'] / $data['orders'] : 0;
+            $sheet->setCellValue('A' . $row, $this->gregorian_to_jalali($date, 'Y/m/d'));
+            $sheet->setCellValue('B' . $row, $data['orders']);
+            $sheet->setCellValue('C' . $row, $data['revenue']);
+            $sheet->setCellValue('D' . $row, $avg_order);
             $row++;
         }
 
@@ -1856,7 +2079,8 @@ class wc_admin_dashboard
         wp_send_json_success(array('file_url' => $file_url, 'filename' => $filename));
     }
 
-    public function export_customers_report() {
+    public function export_customers_report()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
@@ -1915,7 +2139,8 @@ class wc_admin_dashboard
         wp_send_json_success(array('file_url' => $file_url, 'filename' => $filename));
     }
 
-    public function export_products_report() {
+    public function export_products_report()
+    {
         check_ajax_referer('process_excel_upload', 'nonce');
 
         if (!is_user_logged_in()) {
