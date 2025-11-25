@@ -65,7 +65,7 @@ class wc_admin_dashboard
 
     public function enqueue_scripts()
     {
-        wp_enqueue_script('dashboard-script', plugin_dir_url(__FILE__) . '../assets/js/dashboard.js', array('jquery'), '1.0', true);
+        wp_enqueue_script('dashboard-script', plugin_dir_url(__FILE__) . '../assets/js/dashboard.js', array('jquery'), time(), true);
         wp_localize_script('dashboard-script', 'custom_dashboard', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('process_excel_upload')
@@ -1446,23 +1446,25 @@ class wc_admin_dashboard
         }
 
         global $wpdb;
+        $capabilities_key = $wpdb->prefix . 'capabilities';
 
-        // Total customers
+        // Total customers (Everyone except admins and shop managers)
         $total_customers = $wpdb->get_var("
-            SELECT COUNT(DISTINCT pm.meta_value)
-            FROM {$wpdb->postmeta} pm
-            WHERE pm.meta_key = '_customer_user'
-            AND pm.meta_value > 0
+            SELECT COUNT(DISTINCT u.ID)
+            FROM {$wpdb->users} u
+            LEFT JOIN {$wpdb->usermeta} um ON u.ID = um.user_id AND um.meta_key = '{$capabilities_key}'
+            WHERE um.meta_value NOT LIKE '%\"administrator\"%' 
+            AND um.meta_value NOT LIKE '%\"shop_manager\"%'
         ");
 
         // New customers this month
         $new_customers = $wpdb->get_var($wpdb->prepare("
-            SELECT COUNT(DISTINCT pm.meta_value)
-            FROM {$wpdb->postmeta} pm
-            INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
-            WHERE pm.meta_key = '_customer_user'
-            AND pm.meta_value > 0
-            AND p.post_date >= %s
+            SELECT COUNT(DISTINCT u.ID)
+            FROM {$wpdb->users} u
+            LEFT JOIN {$wpdb->usermeta} um ON u.ID = um.user_id AND um.meta_key = '{$capabilities_key}'
+            WHERE um.meta_value NOT LIKE '%\"administrator\"%' 
+            AND um.meta_value NOT LIKE '%\"shop_manager\"%'
+            AND u.user_registered >= %s
         ", date('Y-m-01 00:00:00')));
 
         // Loyal customers (more than 3 orders)
@@ -1550,7 +1552,14 @@ class wc_admin_dashboard
         );
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
         $query = new WC_Order_Query($args);
@@ -1589,7 +1598,14 @@ class wc_admin_dashboard
         );
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
         $query = new WC_Order_Query($args);
@@ -1624,7 +1640,14 @@ class wc_admin_dashboard
         );
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
         }
 
         $query = new WC_Order_Query($args);
@@ -1655,11 +1678,7 @@ class wc_admin_dashboard
                 $ranges['بیشتر از ۵ میلیون تومان']++;
             }
         }
-
-        $labels = array_keys($ranges);
-        $data = array_values($ranges);
-
-        return array('labels' => $labels, 'data' => $data);
+        return $ranges;
     }
 
     private function get_top_products($date_range)
@@ -1669,6 +1688,19 @@ class wc_admin_dashboard
             'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
             'return' => 'objects'
         );
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
+        }
+
+        $query = new WC_Order_Query($args);
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
             $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
@@ -1759,11 +1791,10 @@ class wc_admin_dashboard
                 WHERE pm.meta_key = '_customer_user'
                 AND pm.meta_value > 0
                 AND p.post_type = 'shop_order'
-                AND p.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
                 {$date_condition_loyal}
-                GROUP BY pm.meta_value
-                HAVING order_count > 3
-            ) as loyal
+                GROUP BY pm.meta_value  
+            ) as loyal_customers
+            WHERE order_count > 3
         ");
 
         // Average order value - using WC_Order_Query
@@ -1772,6 +1803,19 @@ class wc_admin_dashboard
             'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
             'return' => 'objects'
         );
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
+        }
+
+        $query = new WC_Order_Query($args);
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
             $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
@@ -1798,7 +1842,6 @@ class wc_admin_dashboard
             'avg_order' => number_format(floatval($avg_order))
         );
     }
-
     private function get_province_sales_data($date_range)
     {
         $args = array(
@@ -1806,6 +1849,19 @@ class wc_admin_dashboard
             'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
             'return' => 'objects'
         );
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
+        }
+
+        $query = new WC_Order_Query($args);
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
             $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
@@ -1862,6 +1918,19 @@ class wc_admin_dashboard
         );
 
         if (!empty($date_range['start']) && !empty($date_range['end'])) {
+            $args['date_query'] = array(
+                array(
+                    'after' => $date_range['start'] . ' 00:00:00',
+                    'before' => $date_range['end'] . ' 23:59:59',
+                    'inclusive' => true,
+                    'column' => 'post_date'
+                )
+            );
+        }
+
+        $query = new WC_Order_Query($args);
+
+        if (!empty($date_range['start']) && !empty($date_range['end'])) {
             $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
         }
 
@@ -1898,9 +1967,16 @@ class wc_admin_dashboard
     private function get_customers_with_orders($start, $length, $search, $sort, $date_filter)
     {
         global $wpdb;
+        $capabilities_key = $wpdb->prefix . 'capabilities';
 
-        $where_clause = "WHERE pm.meta_key = '_customer_user' AND pm.meta_value > 0";
-        $having_clause = "";
+        $where_clause = "WHERE 1=1";
+        
+        // Show all users except admins and shop managers
+        $where_clause .= " AND (
+            um.meta_key = '{$capabilities_key}' 
+            AND um.meta_value NOT LIKE '%\"administrator\"%' 
+            AND um.meta_value NOT LIKE '%\"shop_manager\"%'
+        )";
 
         if (!empty($search)) {
             $where_clause .= $wpdb->prepare(" AND (u.display_name LIKE %s OR u.user_email LIKE %s)", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%');
@@ -1947,16 +2023,16 @@ class wc_admin_dashboard
                 u.display_name as name,
                 u.user_email as email,
                 u.user_registered,
-                COUNT(o.ID) as order_count,
+                COUNT(DISTINCT o.ID) as order_count,
                 COALESCE(SUM(om.meta_value), 0) as total_spent,
                 MAX(o.post_date) as last_order_date
             FROM {$wpdb->users} u
+            LEFT JOIN {$wpdb->usermeta} um ON u.ID = um.user_id AND um.meta_key = '{$capabilities_key}'
             LEFT JOIN {$wpdb->postmeta} pm ON u.ID = pm.meta_value AND pm.meta_key = '_customer_user'
             LEFT JOIN {$wpdb->posts} o ON pm.post_id = o.ID AND o.post_type = 'shop_order' AND o.post_status IN ('wc_completed', 'wc_processing', 'wc_on-hold')
             LEFT JOIN {$wpdb->postmeta} om ON o.ID = om.post_id AND om.meta_key = '_order_total'
             {$where_clause}
             GROUP BY u.ID, u.display_name, u.user_email, u.user_registered
-            {$having_clause}
             {$order_by}
             LIMIT {$start}, {$length}
         ";
@@ -1981,8 +2057,15 @@ class wc_admin_dashboard
     private function get_customers_count($search, $date_filter)
     {
         global $wpdb;
+        $capabilities_key = $wpdb->prefix . 'capabilities';
 
-        $where_clause = "WHERE pm.meta_key = '_customer_user' AND pm.meta_value > 0";
+        $where_clause = "WHERE 1=1";
+        
+        $where_clause .= " AND (
+            um.meta_key = '{$capabilities_key}' 
+            AND um.meta_value NOT LIKE '%\"administrator\"%' 
+            AND um.meta_value NOT LIKE '%\"shop_manager\"%'
+        )";
 
         if (!empty($search)) {
             $where_clause .= $wpdb->prepare(" AND (u.display_name LIKE %s OR u.user_email LIKE %s)", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%');
@@ -1997,6 +2080,7 @@ class wc_admin_dashboard
         $query = "
             SELECT COUNT(DISTINCT u.ID)
             FROM {$wpdb->users} u
+            LEFT JOIN {$wpdb->usermeta} um ON u.ID = um.user_id AND um.meta_key = '{$capabilities_key}'
             LEFT JOIN {$wpdb->postmeta} pm ON u.ID = pm.meta_value AND pm.meta_key = '_customer_user'
             {$where_clause}
         ";
