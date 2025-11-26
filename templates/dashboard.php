@@ -582,18 +582,23 @@ remove_action('wp_head', 'wp_oembed_add_host_js');
         }
 
         div#orders-table_filter,
-        div#orders-table_paginate {
+        div#orders-table_paginate,
+        div#customers-table_filter,
+        div#customers-table_paginate {
             display: inline-block !important;
         }
 
         div#orders-table_length,
-        div#orders-table_info {
+        div#orders-table_info,
+        div#customers-table_length,
+        div#customers-table_info {
             width: 50% !important;
             display: inline-block !important;
             padding: 20px !important;
         }
 
-        table#orders-table td {
+        table#orders-table td,
+        table#customers-table td {
             padding: 15px;
         }
 
@@ -910,6 +915,18 @@ remove_action('wp_head', 'wp_oembed_add_host_js');
                                     <option value="custom">تاریخ خاص</option>
                                     <option value="range">بازه زمانی</option>
                                 </select>
+                            </div>
+                            <div class="custom-date-single hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">تاریخ</label>
+                                <input type="text" id="manage-single-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1403/01/01" data-jdp>
+                            </div>
+                            <div class="custom-date-range hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">از تاریخ</label>
+                                <input type="text" id="manage-start-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1403/01/01" data-jdp>
+                            </div>
+                            <div class="custom-date-range hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">تا تاریخ</label>
+                                <input type="text" id="manage-end-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1403/12/29" data-jdp>
                             </div>
                             <div class="flex items-end">
                                 <button id="refresh-orders-btn" class="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">

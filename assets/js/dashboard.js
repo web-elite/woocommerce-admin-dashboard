@@ -402,6 +402,23 @@
             currentDateFilter = filterValue;
             refreshOrdersTable();
         });
+
+        // Date input listeners
+        $('#manage-single-date').on('change', function() {
+            currentSingleDate = $(this).val();
+            refreshOrdersTable();
+        });
+
+        $('#manage-start-date').on('change', function() {
+            currentStartDate = $(this).val();
+            refreshOrdersTable();
+        });
+
+        $('#manage-end-date').on('change', function() {
+            currentEndDate = $(this).val();
+            refreshOrdersTable();
+        });
+
         // دکمه بروزرسانی
         $('#refresh-orders-btn').on('click', function () {
             var btn = $(this);
@@ -1220,6 +1237,14 @@
                     { data: 3, orderable: true, searchable: false }, // مجموع خرید
                     { data: 4, orderable: true, searchable: false }, // آخرین سفارش
                     { data: 5, orderable: false, searchable: false }  // عملیات
+                ],
+                columnDefs: [
+                    { width: '20%', targets: 0 }, // مشتری
+                    { width: '25%', targets: 1 }, // اطلاعات تماس
+                    { width: '10%', targets: 2 }, // آمار سفارشات
+                    { width: '15%', targets: 3 }, // مجموع خرید
+                    { width: '15%', targets: 4 }, // آخرین سفارش
+                    { width: '15%', targets: 5 }  // عملیات
                 ],
                 order: [[0, 'asc']],
                 pageLength: 25,

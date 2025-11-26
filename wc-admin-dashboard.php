@@ -18,6 +18,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-excel-processor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-settings.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-logger.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-shortcodes.php';
+require_once plugin_dir_path(__FILE__) . 'includes/jdf.php';
 require_once plugin_dir_path(__FILE__) . 'vendor/autoload.php';
 
 // Include WooCommerce admin settings if not already loaded

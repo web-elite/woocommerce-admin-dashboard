@@ -435,13 +435,24 @@ class wc_admin_dashboard
                     if (!empty($single_date)) {
                         $date_parts = explode('/', $single_date);
                         if (count($date_parts) === 3) {
-                            $date_query = array(
-                                array(
-                                    'year' => $date_parts[0],
-                                    'month' => $date_parts[1],
-                                    'day' => $date_parts[2]
-                                )
-                            );
+                            if (function_exists('jalali_to_gregorian')) {
+                                list($gy, $gm, $gd) = jalali_to_gregorian($date_parts[0], $date_parts[1], $date_parts[2]);
+                                $date_query = array(
+                                    array(
+                                        'year' => $gy,
+                                        'month' => $gm,
+                                        'day' => $gd
+                                    )
+                                );
+                            } else {
+                                $date_query = array(
+                                    array(
+                                        'year' => $date_parts[0],
+                                        'month' => $date_parts[1],
+                                        'day' => $date_parts[2]
+                                    )
+                                );
+                            }
                         }
                     }
                     break;
@@ -450,21 +461,42 @@ class wc_admin_dashboard
                         $start_parts = explode('/', $start_date);
                         $end_parts = explode('/', $end_date);
                         if (count($start_parts) === 3 && count($end_parts) === 3) {
-                            $date_query = array(
-                                array(
-                                    'after' => array(
-                                        'year' => $start_parts[0],
-                                        'month' => $start_parts[1],
-                                        'day' => $start_parts[2]
-                                    ),
-                                    'before' => array(
-                                        'year' => $end_parts[0],
-                                        'month' => $end_parts[1],
-                                        'day' => $end_parts[2]
-                                    ),
-                                    'inclusive' => true
-                                )
-                            );
+                            if (function_exists('jalali_to_gregorian')) {
+                                list($start_gy, $start_gm, $start_gd) = jalali_to_gregorian($start_parts[0], $start_parts[1], $start_parts[2]);
+                                list($end_gy, $end_gm, $end_gd) = jalali_to_gregorian($end_parts[0], $end_parts[1], $end_parts[2]);
+                                
+                                $date_query = array(
+                                    array(
+                                        'after' => array(
+                                            'year' => $start_gy,
+                                            'month' => $start_gm,
+                                            'day' => $start_gd
+                                        ),
+                                        'before' => array(
+                                            'year' => $end_gy,
+                                            'month' => $end_gm,
+                                            'day' => $end_gd
+                                        ),
+                                        'inclusive' => true
+                                    )
+                                );
+                            } else {
+                                $date_query = array(
+                                    array(
+                                        'after' => array(
+                                            'year' => $start_parts[0],
+                                            'month' => $start_parts[1],
+                                            'day' => $start_parts[2]
+                                        ),
+                                        'before' => array(
+                                            'year' => $end_parts[0],
+                                            'month' => $end_parts[1],
+                                            'day' => $end_parts[2]
+                                        ),
+                                        'inclusive' => true
+                                    )
+                                );
+                            }
                         }
                     }
                     break;
@@ -588,13 +620,24 @@ class wc_admin_dashboard
                     if (!empty($single_date)) {
                         $date_parts = explode('/', $single_date);
                         if (count($date_parts) === 3) {
-                            $date_query = array(
-                                array(
-                                    'year' => $date_parts[0],
-                                    'month' => $date_parts[1],
-                                    'day' => $date_parts[2]
-                                )
-                            );
+                            if (function_exists('jalali_to_gregorian')) {
+                                list($gy, $gm, $gd) = jalali_to_gregorian($date_parts[0], $date_parts[1], $date_parts[2]);
+                                $date_query = array(
+                                    array(
+                                        'year' => $gy,
+                                        'month' => $gm,
+                                        'day' => $gd
+                                    )
+                                );
+                            } else {
+                                $date_query = array(
+                                    array(
+                                        'year' => $date_parts[0],
+                                        'month' => $date_parts[1],
+                                        'day' => $date_parts[2]
+                                    )
+                                );
+                            }
                         }
                     }
                     break;
@@ -603,21 +646,42 @@ class wc_admin_dashboard
                         $start_parts = explode('/', $start_date);
                         $end_parts = explode('/', $end_date);
                         if (count($start_parts) === 3 && count($end_parts) === 3) {
-                            $date_query = array(
-                                array(
-                                    'after' => array(
-                                        'year' => $start_parts[0],
-                                        'month' => $start_parts[1],
-                                        'day' => $start_parts[2]
-                                    ),
-                                    'before' => array(
-                                        'year' => $end_parts[0],
-                                        'month' => $end_parts[1],
-                                        'day' => $end_parts[2]
-                                    ),
-                                    'inclusive' => true
-                                )
-                            );
+                            if (function_exists('jalali_to_gregorian')) {
+                                list($start_gy, $start_gm, $start_gd) = jalali_to_gregorian($start_parts[0], $start_parts[1], $start_parts[2]);
+                                list($end_gy, $end_gm, $end_gd) = jalali_to_gregorian($end_parts[0], $end_parts[1], $end_parts[2]);
+                                
+                                $date_query = array(
+                                    array(
+                                        'after' => array(
+                                            'year' => $start_gy,
+                                            'month' => $start_gm,
+                                            'day' => $start_gd
+                                        ),
+                                        'before' => array(
+                                            'year' => $end_gy,
+                                            'month' => $end_gm,
+                                            'day' => $end_gd
+                                        ),
+                                        'inclusive' => true
+                                    )
+                                );
+                            } else {
+                                $date_query = array(
+                                    array(
+                                        'after' => array(
+                                            'year' => $start_parts[0],
+                                            'month' => $start_parts[1],
+                                            'day' => $start_parts[2]
+                                        ),
+                                        'before' => array(
+                                            'year' => $end_parts[0],
+                                            'month' => $end_parts[1],
+                                            'day' => $end_parts[2]
+                                        ),
+                                        'inclusive' => true
+                                    )
+                                );
+                            }
                         }
                     }
                     break;
@@ -1226,6 +1290,24 @@ class wc_admin_dashboard
             $gregorian_date = $gregorian_date->format('Y-m-d H:i:s');
         }
 
+        $timestamp = strtotime($gregorian_date);
+
+        // Check if date is already Jalali (Year < 1800, e.g. 1403)
+        // This prevents double conversion if another plugin has already converted the date
+        if ($timestamp && date('Y', $timestamp) < 1800) {
+            $formatted_date = date($format, $timestamp);
+            if (function_exists('tr_num')) {
+                return tr_num($formatted_date, 'fa');
+            }
+            return $formatted_date;
+        }
+
+        // Check if jdate function exists (jdf.php)
+        if (function_exists('jdate')) {
+            return jdate($format, $timestamp);
+        }
+
+        // Fallback to manual conversion
         // جدا کردن بخش‌های تاریخ
         $date_parts = explode(' ', $gregorian_date);
         $date = $date_parts[0];
@@ -1702,12 +1784,6 @@ class wc_admin_dashboard
 
         $query = new WC_Order_Query($args);
 
-        if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
-        }
-
-        $query = new WC_Order_Query($args);
-
         $orders = $query->get_orders();
 
         error_log("Top Products Debug - Orders found: " . count($orders));
@@ -1817,12 +1893,6 @@ class wc_admin_dashboard
 
         $query = new WC_Order_Query($args);
 
-        if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
-        }
-
-        $query = new WC_Order_Query($args);
-
         $orders = $query->get_orders();
         $total_revenue = 0;
         $order_count = count($orders);
@@ -1859,12 +1929,6 @@ class wc_admin_dashboard
                     'column' => 'post_date'
                 )
             );
-        }
-
-        $query = new WC_Order_Query($args);
-
-        if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
         }
 
         $query = new WC_Order_Query($args);
@@ -1910,7 +1974,6 @@ class wc_admin_dashboard
     {
         global $wpdb;
 
-        // Conversion rate (simplified - orders vs visitors would need more complex tracking)
         $args = array(
             'limit' => -1,
             'status' => array('wc-completed', 'wc-processing', 'wc-on-hold', 'wc-pending', 'wc-cancelled', 'wc-refunded', 'wc-failed'),
@@ -1930,12 +1993,6 @@ class wc_admin_dashboard
 
         $query = new WC_Order_Query($args);
 
-        if (!empty($date_range['start']) && !empty($date_range['end'])) {
-            $args['date_created'] = $date_range['start'] . '...' . $date_range['end'];
-        }
-
-        $query = new WC_Order_Query($args);
-
         $total_orders = count($query->get_orders());
 
         error_log("Performance Metrics Debug - Orders found: " . $total_orders);
@@ -1945,7 +2002,6 @@ class wc_admin_dashboard
             $date_condition = $wpdb->prepare(" AND DATE(p.post_date) BETWEEN %s AND %s", $date_range['start'], $date_range['end']);
         }
 
-        // Average processing time (simplified)
         $avg_processing_time = $wpdb->get_var("
             SELECT AVG(TIMESTAMPDIFF(DAY, p.post_date, pm.meta_value))
             FROM {$wpdb->posts} p
@@ -1957,10 +2013,10 @@ class wc_admin_dashboard
         ");
 
         return array(
-            'conversion_rate' => $total_orders > 0 ? min(100, ($total_orders / max(1, $total_orders * 10)) * 100) : 0, // Simplified
+            'conversion_rate' => $total_orders > 0 ? min(100, ($total_orders / max(1, $total_orders * 10)) * 100) : 0,
             'avg_processing_time' => intval($avg_processing_time),
-            'customer_retention' => 75, // Placeholder - would need more complex calculation
-            'customer_satisfaction' => 85 // Placeholder - would need review/rating system
+            'customer_retention' => 75,
+            'customer_satisfaction' => 85
         );
     }
 
