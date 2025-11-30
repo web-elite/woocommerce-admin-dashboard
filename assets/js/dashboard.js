@@ -261,11 +261,11 @@
                     data: function (d) {
                         d.action = 'get_datatable_orders';
                         d.nonce = custom_dashboard.nonce;
-                        d.status_filter = currentStatus;
-                        d.date_filter = currentDateFilter;
-                        d.single_date = currentSingleDate;
-                        d.start_date = currentStartDate;
-                        d.end_date = currentEndDate;
+                        d.status_filter = $('#manage-status-filter').val();
+                        d.date_filter = $('#manage-date-filter').val();
+                        d.single_date = $('#manage-single-date').val();
+                        d.start_date = $('#manage-start-date').val();
+                        d.end_date = $('#manage-end-date').val();
                     }
                 },
                 columns: [
@@ -404,19 +404,16 @@
         });
 
         // Date input listeners
-        $('#manage-single-date').on('change', function() {
-            currentSingleDate = $(this).val();
+        $('#manage-single-date, #manage-start-date, #manage-end-date').on('change', function() {
             refreshOrdersTable();
         });
 
-        $('#manage-start-date').on('change', function() {
-            currentStartDate = $(this).val();
-            refreshOrdersTable();
-        });
-
-        $('#manage-end-date').on('change', function() {
-            currentEndDate = $(this).val();
-            refreshOrdersTable();
+        // Listen for Jalali Datepicker changes (if the library triggers this event)
+        $(document).on('jdp:change', function (e) {
+            var target = $(e.target);
+            if (target.is('#manage-single-date') || target.is('#manage-start-date') || target.is('#manage-end-date')) {
+                refreshOrdersTable();
+            }
         });
 
         // دکمه بروزرسانی
@@ -1435,34 +1432,248 @@
             showCustomerDetailsModal(customerId);
         });
 
-        // Initialize analytics when analytics page is shown
-        $('.nav-item[data-page="analytics"]').on('click', function () {
-            setTimeout(function () {
-                if (!analyticsCharts.monthly) {
-                    loadAnalyticsData();
-                }
-            }, 100);
-        });
+        // Products functionality
+        let productsTable;
 
-        // Initialize customers when customers page is shown
-        $('.nav-item[data-page="customers"]').on('click', function () {
-            setTimeout(function () {
-                if (!customersTable) {
-                    initializeCustomersTable();
-                    loadCustomersStats();
-                }
-            }, 100);
-        });
+        function initializeProductsTable() {
+            if (typeof $.fn.DataTable !== 'function') return;
 
-        // اگر تب orders فعال است، DataTable را مقداردهی اولیه کن
-        if ($('.nav-item[data-page="orders"]').hasClass('bg-blue-50')) {
-            if (typeof $.fn.DataTable === 'function') {
-                initializeOrdersTable();
+            if (productsTable) {
+                productsTable.destroy();
             }
+
+            productsTable = $('#products-table').DataTable({
+                serverSide: true,
+                ajax: {
+                    url: custom_dashboard.ajax_url,
+                    type: 'POST',
+                    data: function (d) {
+                        d.action = 'get_datatable_products';
+                        d.nonce = custom_dashboard.nonce;
+                    },
+                    dataSrc: function (json) {
+                        console.log('DataTables Success Response:', json);
+                        return json.data;
+                    },
+                    error: function (xhr, error, thrown) {
+                        console.error('DataTables Error:', error);
+                        console.error('DataTables Thrown:', thrown);
+                        console.log('Response Text:', xhr.responseText);
+                        alert('خطا در دریافت اطلاعات جدول. لطفا کنسول مرورگر را بررسی کنید.');
+                    }
+                },
+                columns: [
+                    // ID
+                    { data: 0, orderable: true, searchable: false, defaultContent: "" }, 
+                    // Image
+                    { data: 1, orderable: false, searchable: false, defaultContent: "" },
+                    // Name
+                    { data: 2, orderable: true, searchable: true, defaultContent: "" }, 
+                    // SKU
+                    { data: 3, orderable: true, searchable: true, defaultContent: "" }, 
+                    // Price
+                    { data: 4, orderable: true, searchable: false, defaultContent: "" }, 
+                    // Stock
+                    { data: 5, orderable: true, searchable: false, defaultContent: "" }, 
+                    // Actions
+                    { data: 6, orderable: false, searchable: false, defaultContent: "" }  
+                ],
+                columnDefs: [
+                    { width: '5%', targets: 0 },
+                    { width: '10%', targets: 1 },
+                    { width: '30%', targets: 2 },
+                    { width: '15%', targets: 3 },
+                    { width: '15%', targets: 4 },
+                    { width: '15%', targets: 5 },
+                    { width: '10%', targets: 6 }
+                ],
+                order: [[0, 'desc']],
+                pageLength: 10,
+                lengthMenu: [[10, 25, 50], [10, 25, 50]],
+                responsive: true,
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/fa.json'
+                },
+                initComplete: function () {
+                    const wrapper = $(this.api().table().container());
+                    wrapper.addClass('rtl');
+                    wrapper.find('.dataTables_filter input').addClass('text-right').attr('placeholder', 'جستجو...');
+                }
+            });
         }
 
-        // بارگذاری آمار سفارشات در هنگام بارگذاری صفحه
-        loadOrdersData();
+        // Initialize products table when tab is shown
+        $('.nav-item[data-page="products"]').on('click', function () {
+            setTimeout(function () {
+                if (!productsTable) {
+                    initializeProductsTable();
+                } else {
+                    productsTable.columns.adjust().responsive.recalc();
+                }
+            }, 100);
+        });
+
+        // Refresh products button
+        $('#refresh-products-btn').on('click', function() {
+            if (productsTable) {
+                productsTable.ajax.reload();
+            }
+        });
+
+        // Edit Product Modal
+        $(document).on('click', '.edit-product-btn', function() {
+            const btn = $(this);
+            const id = btn.data('id');
+            const name = btn.data('name');
+            const regularPrice = btn.data('regular-price');
+            const salePrice = btn.data('sale-price');
+            const stock = btn.data('stock');
+
+            $('#edit-product-id').val(id);
+            $('#edit-product-name').val(name);
+            $('#edit-product-regular-price').val(regularPrice);
+            $('#edit-product-sale-price').val(salePrice);
+            $('#edit-product-stock').val(stock);
+
+            $('#edit-product-modal').removeClass('hidden');
+        });
+
+        // Close modal
+        $('.close-modal').on('click', function() {
+            $('#edit-product-modal').addClass('hidden');
+        });
+
+        // Submit edit form
+        $('#edit-product-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const form = $(this);
+            const btn = form.find('button[type="submit"]');
+            setLoading(btn, 'در حال ذخیره...');
+
+            $.ajax({
+                url: custom_dashboard.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'update_product_simple',
+                    nonce: custom_dashboard.nonce,
+                    product_id: $('#edit-product-id').val(),
+                    regular_price: $('#edit-product-regular-price').val(),
+                    sale_price: $('#edit-product-sale-price').val(),
+                    stock_quantity: $('#edit-product-stock').val()
+                },
+                success: function(response) {
+                    removeLoading(btn);
+                    if (response.success) {
+                        $('#edit-product-modal').addClass('hidden');
+                        showDashboardMessage(response.data, 'success');
+                        if (productsTable) {
+                            productsTable.ajax.reload(null, false); // Reload without resetting paging
+                        }
+                    } else {
+                        alert('خطا: ' + response.data);
+                    }
+                },
+                error: function() {
+                    removeLoading(btn);
+                    alert('خطا در ارتباط با سرور');
+                }
+            });
+        });
+
+        // Import/Export Tabs
+        $('.ie-tab-btn').on('click', function() {
+            const tab = $(this).data('tab');
+            
+            // Update buttons
+            $('.ie-tab-btn').removeClass('active text-blue-600 border-b-2 border-blue-600').addClass('text-gray-500');
+            $(this).addClass('active text-blue-600 border-b-2 border-blue-600').removeClass('text-gray-500');
+            
+            // Update content
+            $('.ie-tab-content').addClass('hidden');
+            $('#' + tab + '-tab-content').removeClass('hidden');
+
+            // Load categories if export tab is selected and not loaded yet
+            if (tab === 'export' && $('#export-category option').length <= 1) {
+                loadProductCategories();
+            }
+        });
+
+        // Load Product Categories
+        function loadProductCategories() {
+            const select = $('#export-category');
+            
+            $.ajax({
+                url: custom_dashboard.ajax_url,
+                type: 'POST',
+                data: {
+                    action: 'get_product_categories',
+                    nonce: custom_dashboard.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        response.data.forEach(function(cat) {
+                            select.append(`<option value="${cat.id}">${cat.name} (${cat.count})</option>`);
+                        });
+                    }
+                }
+            });
+        }
+
+        // Export Products Form
+        $('#export-products-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const btn = $(this).find('button[type="submit"]');
+            setLoading(btn, 'در حال تولید فایل...');
+            $('#export-products-result').html('<p class="text-gray-600">در حال آماده‌سازی فایل اکسل...</p>');
+
+            const formData = {
+                action: 'export_products_excel',
+                nonce: custom_dashboard.nonce,
+                category: $('#export-category').val(),
+                stock_status: $('#export-stock-status').val(),
+                search: $('#export-search').val()
+            };
+
+            $.ajax({
+                url: custom_dashboard.ajax_url,
+                type: 'POST',
+                data: formData,
+                success: function(response) {
+                    removeLoading(btn);
+                    if (response.success) {
+                        $('#export-products-result').html(`
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-green-600 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span class="text-green-800">فایل با موفقیت آماده شد.</span>
+                                </div>
+                                <a href="${response.data.file_url}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
+                                    دانلود فایل
+                                </a>
+                            </div>
+                        `);
+                        
+                        // Auto download
+                        const link = document.createElement('a');
+                        link.href = response.data.file_url;
+                        link.download = response.data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } else {
+                        $('#export-products-result').html(`<p class="text-red-600">خطا: ${response.data}</p>`);
+                    }
+                },
+                error: function() {
+                    removeLoading(btn);
+                    $('#export-products-result').html('<p class="text-red-600">خطا در ارتباط با سرور.</p>');
+                }
+            });
+        });
 
         jalaliDatepicker.startWatch();
     });

@@ -1,1 +1,13 @@
 /* All styles moved to Tailwind CSS in dashboard.php template */
+
+.loading::after{
+    margin: initial !important;
+}
+
+.loading {
+    cursor: progress !important;
+}
+
+.rotate-y-full{
+    transform: rotateY(180deg);
+}

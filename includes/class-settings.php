@@ -124,9 +124,9 @@ class Custom_Admin_Settings {
                                 <td>
                                     <?php
                                     if ($log->log_type === 'access') {
-                                        echo '<span style="color: #007cba;">🔵 دسترسی به داشبورد</span>';
+                                        echo '<span style="color: #007cba; display: inline-flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" color="currentColor" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px;"><circle cx="12" cy="12" r="10" /></svg> دسترسی به داشبورد</span>';
                                     } elseif ($log->log_type === 'upload') {
-                                        echo '<span style="color: #28a745;">🟢 آپلود فایل</span>';
+                                        echo '<span style="color: #28a745; display: inline-flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" color="currentColor" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px;"><circle cx="12" cy="12" r="10" /></svg> آپلود فایل</span>';
                                     } else {
                                         echo esc_html($log->log_type);
                                     }
@@ -205,9 +205,9 @@ class Custom_Admin_Settings {
                                 <td>
                                     <?php
                                     if ($log->log_type === 'access') {
-                                        echo '<span style="color: #007cba;">🔵 دسترسی به داشبورد</span>';
+                                        echo '<span style="color: #007cba; display: inline-flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" color="currentColor" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px;"><circle cx="12" cy="12" r="10" /></svg> دسترسی به داشبورد</span>';
                                     } elseif ($log->log_type === 'upload') {
-                                        echo '<span style="color: #28a745;">🟢 آپلود فایل</span>';
+                                        echo '<span style="color: #28a745; display: inline-flex; align-items: center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" color="currentColor" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px;"><circle cx="12" cy="12" r="10" /></svg> آپلود فایل</span>';
                                     } else {
                                         echo esc_html($log->log_type);
                                     }

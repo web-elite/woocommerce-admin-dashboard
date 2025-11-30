@@ -7,6 +7,11 @@ class wc_admin_dashboard
 
     public function __construct()
     {
+        // Include jdf.php for Jalali date conversion
+        if (!function_exists('jdate')) {
+            require_once plugin_dir_path(__FILE__) . 'jdf.php';
+        }
+
         if (is_user_logged_in()) {
             add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         }
@@ -25,6 +30,11 @@ class wc_admin_dashboard
         add_action('wp_ajax_export_sales_report', array($this, 'export_sales_report'));
         add_action('wp_ajax_export_customers_report', array($this, 'export_customers_report'));
         add_action('wp_ajax_export_products_report', array($this, 'export_products_report'));
+        add_action('wp_ajax_generate_sample_file', array($this, 'generate_sample_file'));
+        add_action('wp_ajax_get_datatable_products', array($this, 'get_datatable_products'));
+        add_action('wp_ajax_update_product_simple', array($this, 'update_product_simple'));
+        add_action('wp_ajax_export_products_excel', array($this, 'export_products_excel'));
+        add_action('wp_ajax_get_product_categories', array($this, 'get_product_categories'));
     }
 
     public function add_rewrite_rules()
@@ -145,10 +155,10 @@ class wc_admin_dashboard
 
         // آمار کلی
         $stats = array(
-            'total_orders' => $this->get_total_orders_count($period),
-            'completed_orders' => $this->get_completed_orders_count($period),
-            'total_revenue' => $this->get_total_revenue($period),
-            'avg_order' => $this->get_average_order_value($period)
+            'total_orders' => $this->get_total_orders_count($period, $start_date, $end_date),
+            'completed_orders' => $this->get_completed_orders_count($period, $start_date, $end_date),
+            'total_revenue' => $this->get_total_revenue($period, $start_date, $end_date),
+            'avg_order' => $this->get_average_order_value($period, $start_date, $end_date)
         );
 
         // Debug logging
@@ -156,8 +166,8 @@ class wc_admin_dashboard
 
         // داده‌های چارت
         $chart_data = array(
-            'monthly' => $this->get_monthly_sales_data($period),
-            'status' => $this->get_order_status_data($period)
+            'monthly' => $this->get_monthly_sales_data($period, $start_date, $end_date),
+            'status' => $this->get_order_status_data($period, $start_date, $end_date)
         );
 
         error_log('Dashboard Stats Debug - Chart Data: ' . print_r($chart_data, true));
@@ -401,9 +411,10 @@ class wc_admin_dashboard
                 case 'today':
                     $date_query = array(
                         array(
-                            'year' => date('Y'),
-                            'month' => date('m'),
-                            'day' => date('d')
+                            'after'     => date('Y-m-d 00:00:00'),
+                            'before'    => date('Y-m-d 23:59:59'),
+                            'inclusive' => true,
+                            'column'    => 'post_date'
                         )
                     );
                     break;
@@ -411,23 +422,28 @@ class wc_admin_dashboard
                     $yesterday = strtotime('-1 day');
                     $date_query = array(
                         array(
-                            'year' => date('Y', $yesterday),
-                            'month' => date('m', $yesterday),
-                            'day' => date('d', $yesterday)
+                            'after'     => date('Y-m-d 00:00:00', $yesterday),
+                            'before'    => date('Y-m-d 23:59:59', $yesterday),
+                            'inclusive' => true,
+                            'column'    => 'post_date'
                         )
                     );
                     break;
                 case '7':
                     $date_query = array(
                         array(
-                            'after' => '7 days ago'
+                            'after'     => date('Y-m-d 00:00:00', strtotime('-7 days')),
+                            'inclusive' => true,
+                            'column'    => 'post_date'
                         )
                     );
                     break;
                 case '30':
                     $date_query = array(
                         array(
-                            'after' => '30 days ago'
+                            'after'     => date('Y-m-d 00:00:00', strtotime('-30 days')),
+                            'inclusive' => true,
+                            'column'    => 'post_date'
                         )
                     );
                     break;
@@ -439,9 +455,10 @@ class wc_admin_dashboard
                                 list($gy, $gm, $gd) = jalali_to_gregorian($date_parts[0], $date_parts[1], $date_parts[2]);
                                 $date_query = array(
                                     array(
-                                        'year' => $gy,
-                                        'month' => $gm,
-                                        'day' => $gd
+                                        'after'     => sprintf('%04d-%02d-%02d 00:00:00', $gy, $gm, $gd),
+                                        'before'    => sprintf('%04d-%02d-%02d 23:59:59', $gy, $gm, $gd),
+                                        'inclusive' => true,
+                                        'column'    => 'post_date'
                                     )
                                 );
                             } else {
@@ -449,7 +466,8 @@ class wc_admin_dashboard
                                     array(
                                         'year' => $date_parts[0],
                                         'month' => $date_parts[1],
-                                        'day' => $date_parts[2]
+                                        'day' => $date_parts[2],
+                                        'column' => 'post_date'
                                     )
                                 );
                             }
@@ -467,17 +485,10 @@ class wc_admin_dashboard
                                 
                                 $date_query = array(
                                     array(
-                                        'after' => array(
-                                            'year' => $start_gy,
-                                            'month' => $start_gm,
-                                            'day' => $start_gd
-                                        ),
-                                        'before' => array(
-                                            'year' => $end_gy,
-                                            'month' => $end_gm,
-                                            'day' => $end_gd
-                                        ),
-                                        'inclusive' => true
+                                        'after'     => sprintf('%04d-%02d-%02d 00:00:00', $start_gy, $start_gm, $start_gd),
+                                        'before'    => sprintf('%04d-%02d-%02d 23:59:59', $end_gy, $end_gm, $end_gd),
+                                        'inclusive' => true,
+                                        'column'    => 'post_date'
                                     )
                                 );
                             } else {
@@ -493,7 +504,8 @@ class wc_admin_dashboard
                                             'month' => $end_parts[1],
                                             'day' => $end_parts[2]
                                         ),
-                                        'inclusive' => true
+                                        'inclusive' => true,
+                                        'column' => 'post_date'
                                     )
                                 );
                             }
@@ -548,13 +560,13 @@ class wc_admin_dashboard
                 '<span class="text-sm text-gray-500">' . $this->gregorian_to_jalali($order->get_date_created(), 'Y/m/d H:i') . '</span>',
                 '<div class="flex justify-center space-x-1">
                     <a href="' . $print_links['thermal'] . '" target="_blank" title="پرینت حرارتی" class="inline-flex items-center p-1 bg-pink-500 text-white text-xs rounded hover:bg-pink-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7.25 7h9.5V5c0-2-.75-3-3-3h-3.5c-2.25 0-3 1-3 3v2ZM16 15v4c0 2-1 3-3 3h-2c-2 0-3-1-3-3v-4h8Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M21 10v5c0 2-1 3-3 3h-2v-3H8v3H6c-2 0-3-1-3-3v-5c0-2 1-3 3-3h12c2 0 3 1 3 3ZM17 15H7M7 11h3" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7.25 7h9.5V5c0-2-.75-3-3-3h-3.5c-2.25 0-3 1-3 3v2ZM16 15v4c0 2-1 3-3 3h-2c-2 0-3-1-3-3v-4h8Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M21 10v5c0 2-1 3-3 3h-2v-3H8v3H6c-2 0-3-1-3-3v-5c0-2 1-3 3-3h12c2 0 3 1 3 3ZM17 15H7M7 11h3" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                     </a>
                     <a href="' . $print_links['label'] . '" target="_blank" title="برچسب" class="inline-flex items-center p-1 bg-teal-500 text-white text-xs rounded hover:bg-teal-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="m4.17 15.3 4.53 4.53a4.78 4.78 0 0 0 6.75 0l4.39-4.39a4.78 4.78 0 0 0 0-6.75L15.3 4.17a4.75 4.75 0 0 0-3.6-1.39l-5 .24c-2 .09-3.59 1.68-3.69 3.67l-.24 5c-.06 1.35.45 2.66 1.4 3.61Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="m4.17 15.3 4.53 4.53a4.78 4.78 0 0 0 6.75 0l4.39-4.39a4.78 4.78 0 0 0 0-6.75L15.3 4.17a4.75 4.75 0 0 0-3.6-1.39l-5 .24c-2 .09-3.59 1.68-3.69 3.67l-.24 5c-.06 1.35.45 2.66 1.4 3.61Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M9.5 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"></path></svg>
                     </a>
                     <a href="' . $print_links['invoice'] . '" target="_blank" title="فاکتور" class="inline-flex items-center p-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 7v10c0 3-1.5 5-5 5H8c-3.5 0-5-2-5-5V7c0-3 1.5-5 5-5h8c3.5 0 5 2 5 5Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15.5 2v7.86c0 .44-.52.66-.84.37l-2.32-2.14a.496.496 0 0 0-.68 0l-2.32 2.14c-.32.29-.84.07-.84-.37V2h7ZM13.25 14h4.25M9 18h8.5" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M21 7v10c0 3-1.5 5-5 5H8c-3.5 0-5-2-5-5V7c0-3 1.5-5 5-5h8c3.5 0 5 2 5 5Z" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15.5 2v7.86c0 .44-.52.66-.84.37l-2.32-2.14a.496.496 0 0 0-.68 0l-2.32 2.14c-.32.29-.84.07-.84-.37V2h7ZM13.25 14h4.25M9 18h8.5" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg>
                     </a>
                 </div>',
                 '<select class="status-select px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" data-order-id="' . $order->get_id() . '">
@@ -579,117 +591,8 @@ class wc_admin_dashboard
         }
 
         // اضافه کردن فیلتر تاریخ به total_args
-        if ($date_filter !== 'all') {
-            $date_query = array();
-
-            switch ($date_filter) {
-                case 'today':
-                    $date_query = array(
-                        array(
-                            'year' => date('Y'),
-                            'month' => date('m'),
-                            'day' => date('d')
-                        )
-                    );
-                    break;
-                case 'yesterday':
-                    $yesterday = strtotime('-1 day');
-                    $date_query = array(
-                        array(
-                            'year' => date('Y', $yesterday),
-                            'month' => date('m', $yesterday),
-                            'day' => date('d', $yesterday)
-                        )
-                    );
-                    break;
-                case '7':
-                    $date_query = array(
-                        array(
-                            'after' => '7 days ago'
-                        )
-                    );
-                    break;
-                case '30':
-                    $date_query = array(
-                        array(
-                            'after' => '30 days ago'
-                        )
-                    );
-                    break;
-                case 'custom':
-                    if (!empty($single_date)) {
-                        $date_parts = explode('/', $single_date);
-                        if (count($date_parts) === 3) {
-                            if (function_exists('jalali_to_gregorian')) {
-                                list($gy, $gm, $gd) = jalali_to_gregorian($date_parts[0], $date_parts[1], $date_parts[2]);
-                                $date_query = array(
-                                    array(
-                                        'year' => $gy,
-                                        'month' => $gm,
-                                        'day' => $gd
-                                    )
-                                );
-                            } else {
-                                $date_query = array(
-                                    array(
-                                        'year' => $date_parts[0],
-                                        'month' => $date_parts[1],
-                                        'day' => $date_parts[2]
-                                    )
-                                );
-                            }
-                        }
-                    }
-                    break;
-                case 'range':
-                    if (!empty($start_date) && !empty($end_date)) {
-                        $start_parts = explode('/', $start_date);
-                        $end_parts = explode('/', $end_date);
-                        if (count($start_parts) === 3 && count($end_parts) === 3) {
-                            if (function_exists('jalali_to_gregorian')) {
-                                list($start_gy, $start_gm, $start_gd) = jalali_to_gregorian($start_parts[0], $start_parts[1], $start_parts[2]);
-                                list($end_gy, $end_gm, $end_gd) = jalali_to_gregorian($end_parts[0], $end_parts[1], $end_parts[2]);
-                                
-                                $date_query = array(
-                                    array(
-                                        'after' => array(
-                                            'year' => $start_gy,
-                                            'month' => $start_gm,
-                                            'day' => $start_gd
-                                        ),
-                                        'before' => array(
-                                            'year' => $end_gy,
-                                            'month' => $end_gm,
-                                            'day' => $end_gd
-                                        ),
-                                        'inclusive' => true
-                                    )
-                                );
-                            } else {
-                                $date_query = array(
-                                    array(
-                                        'after' => array(
-                                            'year' => $start_parts[0],
-                                            'month' => $start_parts[1],
-                                            'day' => $start_parts[2]
-                                        ),
-                                        'before' => array(
-                                            'year' => $end_parts[0],
-                                            'month' => $end_parts[1],
-                                            'day' => $end_parts[2]
-                                        ),
-                                        'inclusive' => true
-                                    )
-                                );
-                            }
-                        }
-                    }
-                    break;
-            }
-
-            if (!empty($date_query)) {
-                $total_args['date_query'] = $date_query;
-            }
+        if (isset($args['date_query'])) {
+            $total_args['date_query'] = $args['date_query'];
         }
 
         /** @disregard */
@@ -843,7 +746,7 @@ class wc_admin_dashboard
         ));
     }
 
-    private function get_total_orders_count($period = 'all')
+    private function get_total_orders_count($period = 'all', $start_date = '', $end_date = '')
     {
         $args = array(
             'limit' => -1,
@@ -852,7 +755,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -876,7 +779,7 @@ class wc_admin_dashboard
         return $count;
     }
 
-    private function get_completed_orders_count($period = 'all')
+    private function get_completed_orders_count($period = 'all', $start_date = '', $end_date = '')
     {
         $args = array(
             'limit' => -1,
@@ -885,7 +788,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -909,7 +812,7 @@ class wc_admin_dashboard
         return $count;
     }
 
-    private function get_total_revenue($period = 'all')
+    private function get_total_revenue($period = 'all', $start_date = '', $end_date = '')
     {
         $args = array(
             'limit' => -1,
@@ -918,7 +821,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -946,9 +849,9 @@ class wc_admin_dashboard
         error_log("Total Revenue: {$formatted_total} for period: {$period}");
         return $formatted_total;
     }
-    private function get_average_order_value($period = 'all')
+    private function get_average_order_value($period = 'all', $start_date = '', $end_date = '')
     {
-        $completed_count = $this->get_completed_orders_count($period);
+        $completed_count = $this->get_completed_orders_count($period, $start_date, $end_date);
         if ($completed_count == 0) return 0;
 
         $args = array(
@@ -958,7 +861,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -989,7 +892,7 @@ class wc_admin_dashboard
         return $formatted_avg;
     }
 
-    private function get_monthly_sales_data($period = 'all')
+    private function get_monthly_sales_data($period = 'all', $start_date = '', $end_date = '')
     {
         $args = array(
             'limit' => -1,
@@ -998,7 +901,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -1018,7 +921,7 @@ class wc_admin_dashboard
 
         $monthly_data = array();
         foreach ($orders as $order) {
-            $month = $order->get_date_created()->format('Y-m');
+            $month = $this->gregorian_to_jalali($order->get_date_created(), 'Y/m');
             if (!isset($monthly_data[$month])) {
                 $monthly_data[$month] = 0;
             }
@@ -1035,7 +938,7 @@ class wc_admin_dashboard
         return array('labels' => $labels, 'data' => $data);
     }
 
-    private function get_order_status_data($period = 'all')
+    private function get_order_status_data($period = 'all', $start_date = '', $end_date = '')
     {
         $args = array(
             'limit' => -1,
@@ -1044,7 +947,7 @@ class wc_admin_dashboard
         );
 
         if ($period !== 'all') {
-            $date_range = $this->get_date_range_for_period($period);
+            $date_range = $this->get_date_range_for_period($period, $start_date, $end_date);
             $date_parts = explode('...', $date_range);
             $start_date = $date_parts[0];
             $end_date = $date_parts[1];
@@ -1107,7 +1010,7 @@ class wc_admin_dashboard
                     ),
                 );
             case 'yesterday':
-                $yesterday = strtotime('-1 day', $now);
+                $yesterday = strtotime('-1 day');
                 return array(
                     array(
                         'year' => date('Y', $yesterday),
@@ -1153,7 +1056,7 @@ class wc_admin_dashboard
         }
     }
 
-    private function get_date_range_for_period($period)
+    private function get_date_range_for_period($period, $start_date = '', $end_date = '')
     {
         $now = current_time('timestamp');
 
@@ -1182,6 +1085,31 @@ class wc_admin_dashboard
             case '365':
                 $start = date('Y-m-d', strtotime('-365 days', $now));
                 $end = date('Y-m-d', $now);
+                break;
+            case 'custom':
+                if ($start_date && $end_date) {
+                    // Convert Jalali to Gregorian if needed
+                    if (function_exists('jalali_to_gregorian')) {
+                        $start_parts = explode('/', $start_date);
+                        $end_parts = explode('/', $end_date);
+                        if (count($start_parts) === 3 && count($end_parts) === 3) {
+                            list($start_gy, $start_gm, $start_gd) = jalali_to_gregorian($start_parts[0], $start_parts[1], $start_parts[2]);
+                            list($end_gy, $end_gm, $end_gd) = jalali_to_gregorian($end_parts[0], $end_parts[1], $end_parts[2]);
+                            $start = sprintf('%04d-%02d-%02d', $start_gy, $start_gm, $start_gd);
+                            $end = sprintf('%04d-%02d-%02d', $end_gy, $end_gm, $end_gd);
+                        } else {
+                            // Fallback if format is wrong
+                            $start = date('Y-m-d', strtotime('-30 days', $now));
+                            $end = date('Y-m-d', $now);
+                        }
+                    } else {
+                        $start = $start_date;
+                        $end = $end_date;
+                    }
+                } else {
+                    $start = date('Y-m-d', strtotime('-30 days', $now));
+                    $end = date('Y-m-d', $now);
+                }
                 break;
             default:
                 $start = date('Y-m-d', strtotime('-30 days', $now));
@@ -1607,6 +1535,21 @@ class wc_admin_dashboard
                     'end' => date('Y-m-d', $now)
                 );
             case 'custom':
+                if (function_exists('jalali_to_gregorian') && !empty($start_date) && !empty($end_date)) {
+                    $start_parts = preg_split('/[\/\-]/', $start_date);
+                    $end_parts = preg_split('/[\/\-]/', $end_date);
+                    
+                    if (count($start_parts) == 3 && count($end_parts) == 3) {
+                        if ($start_parts[0] < 1800) {
+                            list($gy, $gm, $gd) = jalali_to_gregorian($start_parts[0], $start_parts[1], $start_parts[2]);
+                            $start_date = sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
+                        }
+                        if ($end_parts[0] < 1800) {
+                            list($gy, $gm, $gd) = jalali_to_gregorian($end_parts[0], $end_parts[1], $end_parts[2]);
+                            $end_date = sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
+                        }
+                    }
+                }
                 return array(
                     'start' => $start_date,
                     'end' => $end_date
@@ -1648,12 +1591,9 @@ class wc_admin_dashboard
 
         $orders = $query->get_orders();
 
-        error_log("Monthly Revenue Debug - Date range: " . ($date_range['start'] ?? 'all') . " to " . ($date_range['end'] ?? 'all'));
-        error_log("Monthly Revenue Debug - Orders found: " . count($orders));
-
         $monthly_data = array();
         foreach ($orders as $order) {
-            $month = $order->get_date_created()->format('Y-m');
+            $month = $this->gregorian_to_jalali($order->get_date_created(), 'Y/m');
             if (!isset($monthly_data[$month])) {
                 $monthly_data[$month] = 0;
             }
@@ -1665,8 +1605,7 @@ class wc_admin_dashboard
         $labels = array_keys($monthly_data);
         $data = array_values($monthly_data);
 
-        error_log("Monthly Revenue Debug - Labels: " . print_r($labels, true));
-        error_log("Monthly Revenue Debug - Data: " . print_r($data, true));
+        error_log("Monthly Sales Data: " . print_r(array('labels' => $labels, 'data' => $data), true));
 
         return array('labels' => $labels, 'data' => $data);
     }
@@ -1691,18 +1630,17 @@ class wc_admin_dashboard
         }
 
         $query = new WC_Order_Query($args);
-
         $orders = $query->get_orders();
 
         error_log("Daily Revenue Debug - Orders found: " . count($orders));
 
         $daily_data = array();
         foreach ($orders as $order) {
-            $date = $order->get_date_created()->format('Y-m-d');
-            if (!isset($daily_data[$date])) {
-                $daily_data[$date] = 0;
+            $day = $this->gregorian_to_jalali($order->get_date_created(), 'Y/m/d');
+            if (!isset($daily_data[$day])) {
+                $daily_data[$day] = 0;
             }
-            $daily_data[$date] += $order->get_total();
+            $daily_data[$day] += $order->get_total();
         }
 
         ksort($daily_data);
@@ -1867,6 +1805,7 @@ class wc_admin_dashboard
                 WHERE pm.meta_key = '_customer_user'
                 AND pm.meta_value > 0
                 AND p.post_type = 'shop_order'
+               
                 {$date_condition_loyal}
                 GROUP BY pm.meta_value  
             ) as loyal_customers
@@ -2144,6 +2083,211 @@ class wc_admin_dashboard
         return intval($wpdb->get_var($query));
     }
 
+    public function get_datatable_products()
+    {
+        error_log('DEBUG: get_datatable_products called');
+        
+        check_ajax_referer('process_excel_upload', 'nonce');
+
+        if (!is_user_logged_in()) {
+            error_log('DEBUG: User not logged in');
+            wp_die('Unauthorized');
+        }
+
+        $current_user = wp_get_current_user();
+        $allowed_users = get_option('wc_admin_dashboard_allowed_users', array());
+        if (!in_array($current_user->ID, $allowed_users)) {
+            error_log('DEBUG: User not allowed: ' . $current_user->ID);
+            wp_send_json_error('Access denied.');
+            return;
+        }
+
+        // DataTables parameters
+        $draw = intval($_POST['draw'] ?? 1);
+        $start = intval($_POST['start'] ?? 0);
+        $length = intval($_POST['length'] ?? 10);
+        $search = sanitize_text_field($_POST['search']['value'] ?? '');
+        $order_column = intval($_POST['order'][0]['column'] ?? 0);
+        $order_dir = sanitize_text_field($_POST['order'][0]['dir'] ?? 'desc');
+
+        error_log("DEBUG: Params - Start: $start, Length: $length, Search: $search");
+
+        // Columns mapping
+        $columns = array('id', 'image', 'name', 'sku', 'price', 'stock', 'actions');
+        $orderby = $columns[$order_column] ?? 'date';
+        $order = strtoupper($order_dir) === 'ASC' ? 'ASC' : 'DESC';
+
+        // Query arguments
+        $args = array(
+            'post_type' => 'product',
+            'post_status' => 'publish',
+            'posts_per_page' => $length,
+            'offset' => $start,
+            'order' => $order,
+        );
+
+        // Handle sorting
+        switch ($orderby) {
+            case 'name':
+                $args['orderby'] = 'title';
+                break;
+            case 'id':
+                $args['orderby'] = 'ID';
+                break;
+            case 'price':
+                $args['meta_key'] = '_price';
+                $args['orderby'] = 'meta_value_num';
+                break;
+            case 'stock':
+                $args['meta_key'] = '_stock';
+                $args['orderby'] = 'meta_value_num';
+                break;
+            case 'sku':
+                $args['meta_key'] = '_sku';
+                $args['orderby'] = 'meta_value';
+                break;
+            default:
+                $args['orderby'] = 'date';
+        }
+
+        if (!empty($search)) {
+            $args['s'] = $search;
+        }
+
+        error_log('DEBUG: WP_Query Args: ' . print_r($args, true));
+
+        // Get products
+        $query = new WP_Query($args);
+        $products = $query->posts;
+        $total_records = $query->found_posts;
+
+        error_log("DEBUG: Found posts: $total_records");
+
+        $data = array();
+        foreach ($products as $post) {
+            $product = wc_get_product($post->ID);
+            if (!$product) continue;
+
+            $image = $product->get_image('thumbnail', array('class' => 'w-10 h-10 rounded object-cover'));
+            
+            // Price HTML
+            $price_html = '<div class="flex flex-col">';
+            $regular_price = $product->get_regular_price();
+            $sale_price = $product->get_sale_price();
+            
+            // Ensure prices are floats for number_format to avoid "must be of type int|float" error
+            $regular_price_float = (float) $regular_price;
+            $sale_price_float = (float) $sale_price;
+
+            if ($product->is_on_sale()) {
+                $price_html .= '<span class="text-xs text-gray-400 line-through">' . number_format($regular_price_float) . '</span>';
+                $price_html .= '<span class="text-sm font-bold text-green-600">' . number_format($sale_price_float) . ' تومان</span>';
+            } else {
+                $price_html .= '<span class="text-sm font-bold text-gray-900">' . number_format($regular_price_float) . ' تومان</span>';
+            }
+            $price_html .= '</div>';
+
+            // Stock HTML
+            $stock_status = $product->get_stock_status();
+            $stock_quantity = $product->get_stock_quantity();
+            $stock_class = $stock_status === 'instock' ? 'bg-green-100 text-green-800' : ($stock_status === 'onbackorder' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800');
+            $stock_label = $stock_status === 'instock' ? 'موجود' : ($stock_status === 'onbackorder' ? 'پیش‌خرید' : 'ناموجود');
+            
+            $stock_html = '<div class="flex items-center space-x-2 space-x-reverse">';
+            $stock_html .= '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ' . $stock_class . '">' . $stock_label . '</span>';
+            if ($stock_quantity !== null) {
+                $stock_html .= '<span class="text-sm text-gray-600">(' . $stock_quantity . ')</span>';
+            }
+            $stock_html .= '</div>';
+
+            // Actions
+            $actions = '<button class="edit-product-btn text-blue-600 hover:text-blue-800" 
+                data-id="' . $product->get_id() . '" 
+                data-name="' . esc_attr($product->get_name()) . '"
+                data-regular-price="' . $product->get_regular_price() . '"
+                data-sale-price="' . $product->get_sale_price() . '"
+                data-stock="' . ($product->get_stock_quantity() ?? 0) . '">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+            </button>';
+
+            $data[] = array(
+                $product->get_id(),
+                $image,
+                '<div class="font-medium text-gray-900">' . $product->get_name() . '</div>',
+                $product->get_sku() ?: '-',
+                $price_html,
+                $stock_html,
+                $actions
+            );
+        }
+
+        error_log('DEBUG: Response Data Count: ' . count($data));
+        if (!empty($data)) {
+            error_log('DEBUG: First Row: ' . print_r($data[0], true));
+        }
+
+        wp_send_json(array(
+            'draw' => $draw,
+            'recordsTotal' => $total_records,
+            'recordsFiltered' => $total_records, // Simplified for now
+            'data' => $data
+        ));
+    }
+
+    public function update_product_simple()
+    {
+        check_ajax_referer('process_excel_upload', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_die('Unauthorized');
+        }
+
+        $current_user = wp_get_current_user();
+        $allowed_users = get_option('wc_admin_dashboard_allowed_users', array());
+        if (!in_array($current_user->ID, $allowed_users)) {
+            wp_send_json_error('Access denied.');
+            return;
+        }
+
+        $product_id = intval($_POST['product_id']);
+        $regular_price = sanitize_text_field($_POST['regular_price']);
+        $sale_price = sanitize_text_field($_POST['sale_price']);
+        $stock_quantity = sanitize_text_field($_POST['stock_quantity']);
+
+        $product = wc_get_product($product_id);
+        if (!$product) {
+            wp_send_json_error('محصول یافت نشد.');
+            return;
+        }
+
+        try {
+            // Update prices
+            if ($regular_price !== '') {
+                $product->set_regular_price($regular_price);
+            }
+            
+            if ($sale_price !== '') {
+                $product->set_sale_price($sale_price);
+            } else {
+                $product->set_sale_price('');
+            }
+
+            // Update stock
+            if ($stock_quantity !== '') {
+                $product->set_manage_stock(true);
+                $product->set_stock_quantity($stock_quantity);
+            }
+
+            $product->save();
+
+            wp_send_json_success('محصول با موفقیت بروزرسانی شد.');
+        } catch (Exception $e) {
+            wp_send_json_error('خطا در بروزرسانی: ' . $e->getMessage());
+        }
+    }
+
     // Export methods
     public function export_sales_report()
     {
@@ -2188,7 +2332,7 @@ class wc_admin_dashboard
 
         $daily_data = array();
         foreach ($orders as $order) {
-            $date = $order->get_date_created()->format('Y-m-d');
+            $date = $this->gregorian_to_jalali($order->get_date_created(), 'Y/m/d');
             if (!isset($daily_data[$date])) {
                 $daily_data[$date] = array(
                     'orders' => 0,
@@ -2202,7 +2346,7 @@ class wc_admin_dashboard
         $row = 2;
         foreach ($daily_data as $date => $data) {
             $avg_order = $data['orders'] > 0 ? $data['revenue'] / $data['orders'] : 0;
-            $sheet->setCellValue('A' . $row, $this->gregorian_to_jalali($date, 'Y/m/d'));
+            $sheet->setCellValue('A' . $row, $date);
             $sheet->setCellValue('B' . $row, $data['orders']);
             $sheet->setCellValue('C' . $row, $data['revenue']);
             $sheet->setCellValue('D' . $row, $avg_order);
@@ -2330,5 +2474,94 @@ class wc_admin_dashboard
 
         $file_url = wp_upload_dir()['url'] . '/' . $filename;
         wp_send_json_success(array('file_url' => $file_url, 'filename' => $filename));
+    }
+
+    public function generate_sample_file()
+    {
+        check_ajax_referer('process_excel_upload', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_die('Unauthorized');
+        }
+
+        $current_user = wp_get_current_user();
+        $allowed_users = get_option('wc_admin_dashboard_allowed_users', array());
+        if (!in_array($current_user->ID, $allowed_users)) {
+            wp_send_json_error('Access denied.');
+            return;
+        }
+
+        if (!class_exists('Excel_Processor')) {
+            require_once plugin_dir_path(__FILE__) . 'class-excel-processor.php';
+        }
+
+        $result = Excel_Processor::generate_sample_file();
+
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result['error']);
+        }
+    }
+
+    public function export_products_excel()
+    {
+        check_ajax_referer('process_excel_upload', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_die('Unauthorized');
+        }
+
+        $current_user = wp_get_current_user();
+        $allowed_users = get_option('wc_admin_dashboard_allowed_users', array());
+        if (!in_array($current_user->ID, $allowed_users)) {
+            wp_send_json_error('Access denied.');
+            return;
+        }
+
+        if (!class_exists('Excel_Processor')) {
+            require_once plugin_dir_path(__FILE__) . 'class-excel-processor.php';
+        }
+
+        $filters = array(
+            'category' => sanitize_text_field($_POST['category'] ?? 'all'),
+            'stock_status' => sanitize_text_field($_POST['stock_status'] ?? 'all'),
+            'search' => sanitize_text_field($_POST['search'] ?? '')
+        );
+
+        $fields = isset($_POST['fields']) ? array_map('sanitize_text_field', $_POST['fields']) : array();
+
+        $result = Excel_Processor::export_products($filters, $fields);
+
+        if ($result['success']) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result['error']);
+        }
+    }
+
+    public function get_product_categories()
+    {
+        check_ajax_referer('process_excel_upload', 'nonce');
+
+        if (!is_user_logged_in()) {
+            wp_die('Unauthorized');
+        }
+
+        $categories = get_terms(array(
+            'taxonomy' => 'product_cat',
+            'hide_empty' => false,
+        ));
+
+        $data = array();
+        foreach ($categories as $category) {
+            $data[] = array(
+                'id' => $category->term_id,
+                'name' => $category->name,
+                'count' => $category->count
+            );
+        }
+
+        wp_send_json_success($data);
     }
 }
